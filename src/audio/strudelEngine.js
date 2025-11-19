@@ -1,98 +1,106 @@
-// src/audio/strudelEngine.js
-// This is your audio "brain". React calls these functions; this file talks to Strudel.
+//Main audio Engine for All communications with Strudel
 
+//Quick check constants for play state
 let started = false;
 let isPlaying = false;
 
+const BASE_BPM = 120; // initial speed
+
+//Holds parameters for the loops
 const engineState = {
-  bpm: 120,
+  bpm: 100,
+  sequence: ["bd", "sd", "hh", "bd"], // default pattern until user records one
 };
 
-// --- 1. Helper: apply tempo to Strudel --------------------------------------
-
+//Takes bpm input and converts to strudel logic then applies
 function applyTempo() {
-  // Simple mapping: 1 cycle = 4 beats → cps = bpm / 240
-  const cps = engineState.bpm / 240;
+  const cps = engineState.bpm / 240; // Strudel thinks in "cycles per second" where 120bpm = 0.5cps
   if (typeof window.setcps === "function") {
     window.setcps(cps);
   }
 }
 
-// --- 2. Helper: init Strudel + load samples ONCE ----------------------------
-
+// Check if Strudel has initialized; if not, do so
 async function ensureStarted() {
-  if (started) return;
-
-  if (typeof window.initStrudel !== "function") {
-    console.error("Strudel web bundle not loaded. Check index.html <script> tag.");
-    return;
+  if (window.__strudelInited) {
+    started = true;
   }
 
-  // 1) Boot Strudel (scheduler, audio context, etc.)
-  await window.initStrudel();
+  if (!started) {
+    if (typeof window.initStrudel !== "function") {
+      console.error("Strudel web bundle not loaded. Check index.html <script> tag.");
+      return;
+    }
 
-  // 2) Load the samples you want to use (Dirt-style set)
-  //    These paths assume a Dirt-Samples layout under the base URL.
-  //    If you host them yourself, change SAMPLE_BASE and filenames.
-  const SAMPLE_BASE =
-    "https://raw.githubusercontent.com/tidalcycles/Dirt-Samples/master/";
+    await window.initStrudel();
+    window.__strudelInited = true;
 
-  if (typeof window.samples === "function") {
-    await window.samples(
-      {
-        bd: "bd/BT0AADA.wav",
-        sd: "sd/rytm-01-classic.wav",
-        hh: "hh27/000_hh27closedhh.wav",
-        cp: "cp/classic-001.wav",
-        // add more mappings here if you want more sounds
-        // e.g. oh: "oh/whatever.wav"
-      },
-      SAMPLE_BASE
-    );
-  } else {
-    console.warn(
-      "Strudel 'samples' function not found; sample-based sounds will not work."
-    );
+    applyTempo();
+    started = true;
   }
 
-  // 3) Apply initial tempo
-  applyTempo();
+  // Load samples locally
+  if (!window.__strudelSamplesLoaded) {
+    const SAMPLE_BASE = "/samples/";
 
-  started = true;
+    if (typeof window.samples === "function") {
+      await window.samples(
+        {
+          bd: "006_DT Kick.wav",
+          sd: "009_DT Snare.wav",
+          hh: "004_DT Hat Closed.wav",
+        },
+        SAMPLE_BASE
+      );
+
+      window.__strudelSamplesLoaded = true;
+    } else {
+      console.warn("Strudel 'samples' function not found; sample-based sounds won't work.");
+    }
+  }
 }
 
-// --- 3. Build your main pattern using those sample names --------------------
-
+// Build the main pattern from the current sequence and BPM
 function buildMainPattern() {
   if (typeof window.sound !== "function") {
     console.error("Strudel 'sound' function not available.");
     return null;
   }
 
-  // Simple test groove using bd/sd/hh/cp
-  // You can replace this with something more musical later.
-  return window.sound("bd sd cp, hh*8");
+  const seq = engineState.sequence;
+
+  // Fallback if nothing recorded yet
+  const patString =
+    !seq || seq.length === 0 ? "bd sd, hh*8" : seq.join(" ");
+
+  let pat = window.sound(patString);
+
+  // Change tempo to match BPM
+  const factor = engineState.bpm / BASE_BPM; // 120 → 1, 60 → 0.5, 240 → 2
+  if (Number.isFinite(factor) && factor > 0 && factor !== 1) {
+    if (typeof pat.fast === "function") {
+      pat = pat.fast(factor);
+    } else {
+      console.warn("Pattern has no .fast() method; BPM won’t affect speed.");
+    }
+  }
+
+  return pat;
 }
 
-// --- 4. Apply current pattern and start playback ----------------------------
-
+// Apply current pattern
 function applyCurrentPattern() {
-  // Stop any previous patterns
-  if (typeof window.hush === "function") {
-    window.hush();
-  }
+  if (window.hush) window.hush();
 
   const pat = buildMainPattern();
-  if (pat && typeof pat.play === "function") {
+  if (pat && pat.play) {
     pat.play();
-  } else {
-    console.error("Failed to build pattern or .play() is missing.");
   }
 }
 
-// --- 5. Public API for React ------------------------------------------------
+// PUBLIC FUNCTIONS FOR THE UI TO CALL
 
-// Play button calls this
+// Start looping the sequence
 export async function startTransport() {
   if (isPlaying) return;
 
@@ -101,26 +109,77 @@ export async function startTransport() {
   isPlaying = true;
 }
 
-// Stop button calls this
+// Stop looping
 export function stopTransport() {
-  if (typeof window.hush === "function") {
-    window.hush();
-  }
+  if (window.hush) window.hush();
   isPlaying = false;
 }
 
-// Optional: lets React mirror playing state
+// Allow UI to check play state
 export function getIsPlaying() {
   return isPlaying;
 }
 
-// Called from a BPM slider
+// Update bpm
 export function setBpm(newBpm) {
   const bpm = Number(newBpm);
   if (!Number.isFinite(bpm) || bpm <= 0) {
     console.warn("Ignoring invalid BPM:", newBpm);
     return;
   }
+
   engineState.bpm = bpm;
-  applyTempo();
+
+  
+  if (typeof window.setcps === "function") {
+    const cps = engineState.bpm / 240;
+    window.setcps(cps);
+  }
+
+  // apply new speed to playing pattern
+  if (isPlaying) {
+    applyCurrentPattern();
+  }
+}
+
+
+// Set the recorded sequence
+export function setSequence(seq) {
+  const cleaned = seq.filter((s) => s === "bd" || s === "sd" || s === "hh");
+  if (cleaned.length === 0) return;
+
+  engineState.sequence = cleaned;
+
+  if (isPlaying) applyCurrentPattern();
+}
+
+// Play sound from pad
+export async function triggerPad(token) {
+  if (!["bd", "sd", "hh"].includes(token)) return;
+
+  await ensureStarted();
+
+  const pat = window.sound(token);
+  if (pat?.play) {
+    pat.play();
+  }
+}
+
+// Preload engine so the first pad hit is instant. I don't think i need this anymore
+export async function warmUp() {
+  // Already warmed up?
+  if (window.__strudelWarm) return;
+
+  // Force Strudel init
+  await ensureStarted();
+
+  // Play a silent pattern to start the scheduler
+  try {
+    const silent = window.sound("bd").gain(0); // gain 0 = silent
+    silent.play();
+  } catch (e) {
+    console.warn("Warmup silent play failed:", e);
+  }
+
+  window.__strudelWarm = true;
 }
