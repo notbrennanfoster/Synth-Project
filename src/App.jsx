@@ -81,12 +81,12 @@ export default function App() {
      color: "whitesmoke" , layout: "flex", flexDirection: "column", alignItems: "center" }}>
       <h1>Drum Machine</h1>
 
-      {/* Play / Stop */}
+      
       <button onClick={handlePlayClick}>
         {isPlayingState ? "Stop" : "Play"}
       </button>
 
-      {/* BPM */}
+      
       <label style={{ marginLeft: "1rem" }}>
         BPM:{" "}
         <input
@@ -98,14 +98,14 @@ export default function App() {
         />
       </label>
 
-      {/* Pads */}
+      
       <div style={{ marginTop: "2rem" }}>
         <Pad label="Kick" token="bd" onHit={handlePadHit} />
         <Pad label="Snare" token="sd" onHit={handlePadHit} />
         <Pad label="Hat" token="hh" onHit={handlePadHit} />
       </div>
 
-      {/* Sequence Button */}
+      
       <div style={{ marginTop: "1rem" }}>
         <SequenceButton
           isRecording={isRecording}
@@ -113,7 +113,7 @@ export default function App() {
         />
       </div>
 
-      {/* Debug / Feedback */}
+      
       <p style={{ marginTop: "1rem" }}>
         Sequence: {sequence.join(" ")}
       </p>

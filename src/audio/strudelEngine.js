@@ -14,7 +14,7 @@ const engineState = {
 
 //Takes bpm input and converts to strudel logic then applies
 function applyTempo() {
-  const cps = engineState.bpm / 240; // Strudel thinks in "cycles per second" where 120bpm = 0.5cps
+  const cps = engineState.bpm / 240; //convert to cycles per second
   if (typeof window.setcps === "function") {
     window.setcps(cps);
   }
@@ -81,7 +81,7 @@ function buildMainPattern() {
     if (typeof pat.fast === "function") {
       pat = pat.fast(factor);
     } else {
-      console.warn("Pattern has no .fast() method; BPM won’t affect speed.");
+      console.warn("Pattern has no .fast() method; BPM wont affect speed.");
     }
   }
 
