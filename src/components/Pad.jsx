@@ -1,3 +1,4 @@
+// src/components/Pad.jsx
 export default function Pad({ label, token, onHit }) {
   const handleClick = () => {
     onHit(token);
@@ -5,25 +6,13 @@ export default function Pad({ label, token, onHit }) {
 
   return (
     <button
+      className="pad"
       onClick={handleClick}
-      style={{
-        width: "120px",
-        height: "120px",
-        margin: "0.75rem",
-        borderRadius: "0px",
-        fontSize: "1.2rem",
-        fontWeight: "600",
-        cursor: "pointer",
-        backgroundColor: "#7b6363ff", 
-        border: "2px solid #5a4545ff",
-        boxShadow: "0 4px 8px rgba(0,0,0,0.15)",
-        transition: "transform 0.05s ease",
-      }}
-      onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
-      onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-      onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+      onMouseDown={(e) => e.currentTarget.classList.add("pad-active")}
+      onMouseUp={(e) => e.currentTarget.classList.remove("pad-active")}
+      onMouseLeave={(e) => e.currentTarget.classList.remove("pad-active")}
     >
-      {label}
+      <span className="pad-label">{label}</span>
     </button>
   );
 }
