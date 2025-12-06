@@ -10,14 +10,16 @@ import {
 } from "./audio/strudelEngine";
 
 import { playPad, initPadAudio, setPadPreset } from "./components/padAudio";
-import DrumKitSelector from "./components/DrumKitSelector/DrumKitSelector.jsx";
+
 import ControllerShell from "./components/ControllerShell/ControllerShell.jsx";
 import TransportBar from "./components/TransportBar/TransportBar.jsx";
 import InstrumentSelector from "./components/InstrumentSelector/InstrumentSelector.jsx";
+import DrumKitSelector from "./components/DrumKitSelector/DrumKitSelector.jsx";
 import PadGrid from "./components/PadGrid/PadGrid.jsx";
 import EffectsPanel from "./components/EffectsPanel/EffectsPanel.jsx";
 import Keyboard from "./components/Keyboard/Keyboard.jsx";
 import LoopsBar from "./components/LoopsBar/LoopsBar.jsx";
+
 import "./App.css";
 
 // Merge all active loops into one sequence.
@@ -44,11 +46,11 @@ function buildMergedPattern(loops, fallbackSequence) {
 }
 
 const PADS = [
-  { label: "Kick", token: "bd" },
-  { label: "Snare", token: "sd" },
-  { label: "HatC", token: "hhc" },
-  { label: "HatO", token: "hho" },
-  { label: "Crash", token: "cr" },
+  { label: "Kick",  token: "bd"  },
+  { label: "Snare", token: "sd"  },
+  { label: "HatC",  token: "hh"  },  // closed hat
+  { label: "HatO",  token: "hho" },  // open hat (own token)
+  { label: "Crash", token: "cp"  },
 ];
 
 export default function App() {
@@ -72,7 +74,7 @@ export default function App() {
     reverb: 0.4,
   });
 
-  // current drum preset (matches folder name under /public/Drums)
+  // drum kit preset (folder under /public/samples/Drums)
   const [padPreset, setPadPresetState] = useState("Default");
 
   // timer for quantized loop changes
@@ -96,7 +98,6 @@ export default function App() {
 
   // ---------- helpers ----------
 
-  // Apply loop changes either immediately or at the next bar boundary.
   const updateSequenceForLoops = (updatedLoops, { quantize = true } = {}) => {
     if (!isPlayingState || !quantize) {
       const merged = buildMergedPattern(updatedLoops, sequence);
@@ -108,7 +109,7 @@ export default function App() {
       clearTimeout(changeTimerRef.current);
     }
 
-    const beatsPerBar = 4; // simple 4/4 assumption
+    const beatsPerBar = 4;
     const barMs = (60000 / bpm) * beatsPerBar;
 
     const snapshot = updatedLoops.map((l) => ({
@@ -126,12 +127,13 @@ export default function App() {
   // ---------- handlers ----------
 
   const handlePadHit = (token) => {
+    // play correct pad sample (includes 'hho' for open hat)
     playPad(token);
 
     if (isRecording) {
       setSequenceState((prev) => {
-        const updated = [...prev, token];
-        setSequence(updated);
+        const updated = [...prev, token]; // store exact token
+        setSequence(updated);             // tell Strudel about it
         return updated;
       });
     }
@@ -162,7 +164,6 @@ export default function App() {
     });
   };
 
-  // Accepts either a number or an event.target.value
   const handleBpmChange = (valueOrEvent) => {
     const value =
       typeof valueOrEvent === "number"
@@ -180,7 +181,7 @@ export default function App() {
 
   const handleKeyPress = (note) => {
     console.log("Key pressed:", note, "instrument:", instrument);
-    // TODO: trigger synth note based on instrument
+    // hook synth note here later
   };
 
   const handleSaveLoop = (index) => {
@@ -226,43 +227,34 @@ export default function App() {
         alignItems: "center",
         padding: "2rem",
         boxSizing: "border-box",
-        position: "relative",
       }}
     >
-      {/* Drum preset selector */}
-      <div style={{ position: "absolute", top: "1rem", left: "1rem" }}>
-        <select
-          value={padPreset}
-          onChange={(e) => setPadPresetState(e.target.value)}
-        >
-          <option value="Default">Drums: Default</option>
-          <option value="Acoustic">Drums: Acoustic</option>
-          <option value="808s">Drums: 808s</option>
-        </select>
-      </div>
-
       <ControllerShell>
-        {/* Top transport & recording controls */}
-        <TransportBar
-          isPlaying={isPlayingState}
-          onPlayClick={handlePlayClick}
-          bpm={bpm}
-          onBpmChange={handleBpmChange}
-          isRecording={isRecording}
-          onRecordToggle={handleSequenceToggle}
-        />
+        {/* Top bar: transport left, selectors right */}
+        <div className="top-bar">
+          <TransportBar
+            isPlaying={isPlayingState}
+            onPlayClick={handlePlayClick}
+            bpm={bpm}
+            onBpmChange={handleBpmChange}
+            isRecording={isRecording}
+            onRecordToggle={handleSequenceToggle}
+          />
 
-        {/* Instrument selector */}
-        <div className="top-right-controls">
-          <InstrumentSelector
-            instrument={instrument}
-            onInstrumentChange={handleInstrumentChange}
-          />
-          <DrumKitSelector
-            padPreset={padPreset}
-            onPresetChange={setPadPresetState}
-          />
+          <div className="top-right-selectors">
+            <InstrumentSelector
+              instrument={instrument}
+              onInstrumentChange={handleInstrumentChange}
+            />
+            <DrumKitSelector
+              padPreset={padPreset}
+              onPresetChange={setPadPresetState}
+            />
+          </div>
         </div>
+
+        {/* divider under the whole top bar */}
+        <div className="top-divider" />
 
         {/* Main control area */}
         <div
@@ -274,17 +266,13 @@ export default function App() {
             marginTop: "1.5rem",
           }}
         >
-          {/* Pad grid */}
+          {/* Pads */}
           <PadGrid pads={PADS} onPadHit={handlePadHit} />
 
           {/* Keyboard */}
-          <Keyboard
-            instrument={instrument}
-            onKeyPress={handleKeyPress}
-            scale={2}
-          />
+          <Keyboard onKeyPress={handleKeyPress} />
 
-          {/* Loops / patterns */}
+          {/* Loops */}
           <LoopsBar
             loops={loops}
             onSaveLoop={handleSaveLoop}

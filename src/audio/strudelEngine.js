@@ -1,26 +1,26 @@
-//Main audio Engine for All communications with Strudel
+// src/audio/strudelEngine.js
+// Main audio engine for all communications with Strudel
 
-//Quick check constants for play state
 let started = false;
 let isPlaying = false;
 
-const BASE_BPM = 120; // initial speed
+const BASE_BPM = 120; // reference tempo
 
-//Holds parameters for the loops
+// Holds parameters for the loops
 const engineState = {
   bpm: 100,
   sequence: ["bd", "sd", "hh", "bd"], // default pattern until user records one
 };
 
-//Takes bpm input and converts to strudel logic then applies
+// Convert BPM → cps and apply to Strudel
 function applyTempo() {
-  const cps = engineState.bpm / 240; //convert to cycles per second
+  const cps = engineState.bpm / 240; // 120 BPM → cps = 0.5
   if (typeof window.setcps === "function") {
     window.setcps(cps);
   }
 }
 
-// Check if Strudel has initialized; if not, do so
+// Ensure Strudel is initialized and samples are loaded
 async function ensureStarted() {
   if (window.__strudelInited) {
     started = true;
@@ -28,7 +28,9 @@ async function ensureStarted() {
 
   if (!started) {
     if (typeof window.initStrudel !== "function") {
-      console.error("Strudel web bundle not loaded. Check index.html <script> tag.");
+      console.error(
+        "Strudel web bundle not loaded. Check index.html <script> tag."
+      );
       return;
     }
 
@@ -39,23 +41,30 @@ async function ensureStarted() {
     started = true;
   }
 
-  // Load samples locally
+  // Load samples from your folder: /samples/Drums/Default/
   if (!window.__strudelSamplesLoaded) {
-    const SAMPLE_BASE = "/samples/";
+    const SAMPLE_BASE = "/samples/Drums/Default/";
 
     if (typeof window.samples === "function") {
+      console.log("[strudelEngine] Loading drum samples from", SAMPLE_BASE);
+
       await window.samples(
         {
-          bd: "006_DT Kick.wav",
-          sd: "009_DT Snare.wav",
-          hh: "004_DT Hat Closed.wav",
+          bd:  "Kick.wav",   // Kick
+          sd:  "Snare.wav",  // Snare
+          hh:  "HatC.wav",   // Closed hat
+          hho: "HatO.wav",   // Open hat  
+          cp:  "Crash.wav",  // Crash
         },
         SAMPLE_BASE
       );
 
       window.__strudelSamplesLoaded = true;
+      console.log("[strudelEngine] Samples loaded: bd, sd, hh, hho, cp");
     } else {
-      console.warn("Strudel 'samples' function not found; sample-based sounds won't work.");
+      console.warn(
+        "Strudel 'samples' function not found; sample-based sounds won't work."
+      );
     }
   }
 }
@@ -69,38 +78,40 @@ function buildMainPattern() {
 
   const seq = engineState.sequence;
 
-  // Fallback if nothing recorded yet
+  // Fallback if nothing recorded/merged yet
   const patString =
     !seq || seq.length === 0 ? "bd sd, hh*8" : seq.join(" ");
 
+  console.log("[strudelEngine] Pattern string:", patString);
+
   let pat = window.sound(patString);
 
-  // Change tempo to match BPM
-  const factor = engineState.bpm / BASE_BPM; // 120 → 1, 60 → 0.5, 240 → 2
+  // Adjust speed based on BPM relative to BASE_BPM
+  const factor = engineState.bpm / BASE_BPM;
   if (Number.isFinite(factor) && factor > 0 && factor !== 1) {
     if (typeof pat.fast === "function") {
       pat = pat.fast(factor);
     } else {
-      console.warn("Pattern has no .fast() method; BPM wont affect speed.");
+      console.warn("Pattern has no .fast() method; BPM won't affect speed.");
     }
   }
 
   return pat;
 }
 
-// Apply current pattern
+// Apply current pattern to Strudel (stop old, start new)
 function applyCurrentPattern() {
   if (window.hush) window.hush();
 
   const pat = buildMainPattern();
-  if (pat && pat.play) {
+  if (pat && typeof pat.play === "function") {
     pat.play();
   }
 }
 
-// PUBLIC FUNCTIONS FOR THE UI TO CALL
+/* ===================== PUBLIC API ===================== */
 
-// Start looping the sequence
+// Start looping the current sequence
 export async function startTransport() {
   if (isPlaying) return;
 
@@ -115,12 +126,12 @@ export function stopTransport() {
   isPlaying = false;
 }
 
-// Allow UI to check play state
+// Check if Strudel transport is playing
 export function getIsPlaying() {
   return isPlaying;
 }
 
-// Update bpm
+// Update BPM and reapply tempo/pattern if needed
 export function setBpm(newBpm) {
   const bpm = Number(newBpm);
   if (!Number.isFinite(bpm) || bpm <= 0) {
@@ -130,52 +141,67 @@ export function setBpm(newBpm) {
 
   engineState.bpm = bpm;
 
-  
   if (typeof window.setcps === "function") {
     const cps = engineState.bpm / 240;
     window.setcps(cps);
   }
 
-  // apply new speed to playing pattern
   if (isPlaying) {
     applyCurrentPattern();
   }
 }
 
-
-// Set the recorded sequence
+// Set the recorded/merged sequence that Strudel will loop
 export function setSequence(seq) {
-  const cleaned = seq.filter((s) => s === "bd" || s === "sd" || s === "hh");
-  if (cleaned.length === 0) return;
+  // Only allow tokens we have samples for
+  const cleaned = seq.filter(
+    (s) =>
+      s === "bd" ||
+      s === "sd" ||
+      s === "hh" ||
+      s === "hho" ||
+      s === "cp"
+  );
+
+  if (cleaned.length === 0) {
+    // If nothing valid, don't overwrite the existing pattern
+    console.log("[strudelEngine] Ignoring empty/invalid sequence", seq);
+    return;
+  }
 
   engineState.sequence = cleaned;
+  console.log("[strudelEngine] Updated engine sequence:", cleaned);
 
-  if (isPlaying) applyCurrentPattern();
+  if (isPlaying) {
+    applyCurrentPattern();
+  }
 }
 
-// Play sound from pad
+// Fire a single drum hit via Strudel (not padAudio)
 export async function triggerPad(token) {
-  if (!["bd", "sd", "hh"].includes(token)) return;
+  if (!["bd", "sd", "hh", "hho", "cp"].includes(token)) {
+    console.warn("[strudelEngine] triggerPad: unsupported token", token);
+    return;
+  }
 
   await ensureStarted();
 
   const pat = window.sound(token);
-  if (pat?.play) {
+  if (pat && typeof pat.play === "function") {
     pat.play();
+  } else {
+    console.warn("[strudelEngine] sound", token, "not found – is it loaded?");
   }
 }
 
-// Preload engine so the first pad hit is instant. I don't think i need this anymore
+// Preload engine so the first action is instant
 export async function warmUp() {
-  // Already warmed up?
   if (window.__strudelWarm) return;
 
-  // Force Strudel init
   await ensureStarted();
 
-  // Play a silent pattern to start the scheduler
   try {
-    const silent = window.sound("bd").gain(0); // gain 0 = silent
+    const silent = window.sound("bd").gain(0); // gain(0) = silent
     silent.play();
   } catch (e) {
     console.warn("Warmup silent play failed:", e);

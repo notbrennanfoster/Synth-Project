@@ -6,13 +6,19 @@ let currentPadPreset = "Default"; // folder inside /public/samples/Drums/
 
 const padBuffers = {};
 
-// EXACT drum file mappings
+// Drum file mappings for pad clicks.
+// Tokens:
+//   bd  -> Kick
+//   sd  -> Snare
+//   hh  -> Closed Hat
+//   hho -> Open Hat
+//   cp  -> Crash
 const PAD_FILES = {
   bd: "Kick.wav",
   sd: "Snare.wav",
-  hhc: "HatC.wav",
-  hho: "HatO.wav",
-  cr: "Crash.wav",
+  hh: "HatC.wav",   // closed hat
+  hho: "HatO.wav",  // open hat
+  cp: "Crash.wav",  // crash
 };
 
 /* --------------------------------------------------
@@ -43,11 +49,7 @@ async function ensureResumedContext() {
 /* Safari-safe decode wrapper */
 function decodeBuffer(ctx, arrayBuffer) {
   return new Promise((resolve, reject) => {
-    const result = ctx.decodeAudioData(
-      arrayBuffer,
-      resolve,
-      reject
-    );
+    const result = ctx.decodeAudioData(arrayBuffer, resolve, reject);
 
     // if decodeAudioData returns a Promise (Chrome)
     if (result && typeof result.then === "function") {
