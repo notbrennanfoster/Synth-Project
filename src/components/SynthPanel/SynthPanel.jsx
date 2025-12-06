@@ -1,4 +1,4 @@
-// src/components/SynthPanel/SynthPanel.jsx
+
 
 export default function SynthPanel({ activeVoice, params, onChange }) {
   // Defensive defaults so the tab never crashes

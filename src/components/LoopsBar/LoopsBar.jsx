@@ -1,4 +1,4 @@
-// src/components/LoopsBar/LoopsBar.jsx
+
 import "./LoopsBar.css";
 
 export default function LoopsBar({ loops, onSaveLoop, onToggleLoopActive }) {

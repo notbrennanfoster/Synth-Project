@@ -1,4 +1,4 @@
-// src/components/pianoAudio.js
+
 
 // Simple sample-based synth engine for lead & bass
 // Uses one AudioContext + shared FX graph (volume / tone / "reverb")

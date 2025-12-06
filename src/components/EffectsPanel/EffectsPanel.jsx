@@ -1,4 +1,4 @@
-// src/components/EffectsPanel/EffectsPanel.jsx
+
 import "./EffectsPanel.css";
 
 export default function EffectsPanel({ effects, onEffectChange }) {

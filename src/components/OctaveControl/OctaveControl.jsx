@@ -1,4 +1,4 @@
-// src/components/OctaveControl/OctaveControl.jsx
+
 import "./OctaveControl.css";
 
 export default function OctaveControl({ octaveOffset, onChange }) {

@@ -1,6 +1,6 @@
-// src/components/SynthLoopsBar/SynthLoopsBar.jsx
 
-import "./SynthLoopsBar.css"; // optional, re-use LoopsBar styles or keep minimal
+
+import "./SynthLoopsBar.css"; 
 
 export default function SynthLoopsBar({
   loops,

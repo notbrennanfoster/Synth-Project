@@ -1,4 +1,4 @@
-// src/components/Keyboard/Keyboard.jsx
+
 import { useRef } from "react";
 import "./Keyboard.css";
 
@@ -56,7 +56,7 @@ export default function Keyboard({ onKeyPress, octaveOffset = 0 }) {
     // retrigger while held
     holdTimerRef.current = setInterval(() => {
       onKeyPress(note);
-    }, 160); // tweak if you want faster/slower repeat
+    }, 160); 
   };
 
   const stopHeldNote = () => {
