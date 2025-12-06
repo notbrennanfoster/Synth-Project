@@ -1,27 +1,71 @@
-// src/audio/strudelEngine.js
-// Main audio engine for all communications with Strudel
+
+// Main audio engine for Strudel loops (drums)
 
 let started = false;
 let isPlaying = false;
 
-const BASE_BPM = 120; // reference tempo
+const BASE_BPM = 120; // reference tempo for .fast()
 
 // Holds parameters for the loops
 const engineState = {
   bpm: 100,
   sequence: ["bd", "sd", "hh", "bd"], // default pattern until user records one
-  drumPreset: "Default",              // current drum kit used for Strudel samples
+  drumPreset: "Default",
+  volume: 1.0, // 0..1 master gain for the Strudel pattern
+  reverb: 0.4, // 0..1 reverb / delay intensity
+  tone: 0.5,   // 0..1 brightness
 };
 
-// Convert BPM → cps and apply to Strudel
+function clamp01(x) {
+  return Math.min(1, Math.max(0, x));
+}
+
+// Takes bpm input and converts to Strudel cps, then applies
 function applyTempo() {
-  const cps = engineState.bpm / 240; // 120 BPM → cps = 0.5
+  const cps = engineState.bpm / 240; // convert to cycles per second
   if (typeof window.setcps === "function") {
     window.setcps(cps);
   }
 }
 
-// Ensure Strudel is initialized and samples are loaded
+// Load samples for current drum preset into Strudel
+async function loadDrumSamples() {
+  if (typeof window.samples !== "function") {
+    console.warn(
+      "[strudelEngine] 'samples' function not found; sample-based drums won't work."
+    );
+    return;
+  }
+
+  const preset = engineState.drumPreset || "Default";
+
+  // Expecting:
+  // public/samples/Drums/<Preset>/Kick.wav
+  // public/samples/Drums/<Preset>/Snare.wav
+  // public/samples/Drums/<Preset>/HatC.wav
+  // public/samples/Drums/<Preset>/HatO.wav
+  // public/samples/Drums/<Preset>/Crash.wav
+  const SAMPLE_BASE = `/samples/Drums/${encodeURIComponent(preset)}/`;
+
+  const mapping = {
+    bd: "Kick.wav",
+    sd: "Snare.wav",
+    hh: "HatC.wav",
+    hho: "HatO.wav",
+    cp: "Crash.wav",
+  };
+
+  try {
+    await window.samples(mapping, SAMPLE_BASE);
+    console.log(
+      `[strudelEngine] Loaded Strudel samples for preset '${preset}' from ${SAMPLE_BASE}`
+    );
+  } catch (err) {
+    console.error("[strudelEngine] Failed to load Strudel samples:", err);
+  }
+}
+
+// Check if Strudel has initialized; if not, do so
 async function ensureStarted() {
   if (window.__strudelInited) {
     started = true;
@@ -30,7 +74,7 @@ async function ensureStarted() {
   if (!started) {
     if (typeof window.initStrudel !== "function") {
       console.error(
-        "Strudel web bundle not loaded. Check index.html <script> tag."
+        "[strudelEngine] Strudel web bundle not loaded. Check index.html <script> tag."
       );
       return;
     }
@@ -42,82 +86,88 @@ async function ensureStarted() {
     started = true;
   }
 
-  // Load samples from your folder: /samples/Drums/<drumPreset>/
+  // Load samples for the current drum preset
   if (!window.__strudelSamplesLoaded) {
-    const SAMPLE_BASE = `/samples/Drums/${engineState.drumPreset}/`;
-
-    if (typeof window.samples === "function") {
-      console.log(
-        "[strudelEngine] Loading drum samples from",
-        SAMPLE_BASE,
-        "for preset",
-        engineState.drumPreset
-      );
-
-      await window.samples(
-        {
-          bd:  "Kick.wav",   // Kick
-          sd:  "Snare.wav",  // Snare
-          hh:  "HatC.wav",   // Closed hat
-          hho: "HatO.wav",   // Open hat  
-          cp:  "Crash.wav",  // Crash
-        },
-        SAMPLE_BASE
-      );
-
-      window.__strudelSamplesLoaded = true;
-      console.log("[strudelEngine] Samples loaded: bd, sd, hh, hho, cp");
-    } else {
-      console.warn(
-        "Strudel 'samples' function not found; sample-based sounds won't work."
-      );
-    }
+    await loadDrumSamples();
+    window.__strudelSamplesLoaded = true;
   }
 }
 
-// Build the main pattern from the current sequence and BPM
+// Build the main pattern from the current sequence, BPM, and FX
 function buildMainPattern() {
   if (typeof window.sound !== "function") {
-    console.error("Strudel 'sound' function not available.");
+    console.error("[strudelEngine] 'sound' function not available.");
     return null;
   }
 
   const seq = engineState.sequence;
 
-  // Fallback if nothing recorded/merged yet
+  // Fallback if nothing recorded yet
   const patString =
     !seq || seq.length === 0 ? "bd sd, hh*8" : seq.join(" ");
 
-  console.log("[strudelEngine] Pattern string:", patString);
-
   let pat = window.sound(patString);
 
-  // Adjust speed based on BPM relative to BASE_BPM
-  const factor = engineState.bpm / BASE_BPM;
+  // --------- GLOBAL FX MAPPING ----------
+
+  // Volume
+  if (typeof pat.gain === "function") {
+    pat = pat.gain(engineState.volume);
+  }
+
+  // Tone → cutoff; map 0..1 → 400Hz..10kHz
+  if (typeof pat.cutoff === "function") {
+    const cutoff = 400 + engineState.tone * 9600;
+    pat = pat.cutoff(cutoff);
+  }
+
+  // Reverb-ish: room / size
+  if (typeof pat.room === "function") {
+    pat = pat.room(engineState.reverb);
+  }
+  if (typeof pat.size === "function") {
+    pat = pat.size(0.2 + engineState.reverb * 0.8);
+  }
+
+  // Delay tied to reverb amount (if available in this Strudel build)
+  if (typeof pat.delay === "function") {
+    const delayTime = engineState.reverb * 0.5; // 0..0.5 beats-ish
+    pat = pat.delay(delayTime);
+  }
+  if (typeof pat.delayfb === "function") {
+    pat = pat.delayfb(0.3 + engineState.reverb * 0.4); // 0.3..0.7
+  }
+
+  // --------- TEMPO SCALING ----------
+
+  const factor = engineState.bpm / BASE_BPM; // 120 → 1, 60 → 0.5, 240 → 2
   if (Number.isFinite(factor) && factor > 0 && factor !== 1) {
     if (typeof pat.fast === "function") {
       pat = pat.fast(factor);
     } else {
-      console.warn("Pattern has no .fast() method; BPM won't affect speed.");
+      console.warn(
+        "[strudelEngine] Pattern has no .fast() method; BPM won't affect speed."
+      );
     }
   }
 
   return pat;
 }
 
-// Apply current pattern to Strudel (stop old, start new)
+// Apply current pattern
 function applyCurrentPattern() {
   if (window.hush) window.hush();
 
   const pat = buildMainPattern();
-  if (pat && typeof pat.play === "function") {
+  if (pat && pat.play) {
     pat.play();
   }
 }
 
-/* ===================== PUBLIC API ===================== */
+/* --------------------------------------------------
+   PUBLIC FUNCTIONS FOR THE UI TO CALL
+-------------------------------------------------- */
 
-// Start looping the current sequence
 export async function startTransport() {
   if (isPlaying) return;
 
@@ -126,22 +176,19 @@ export async function startTransport() {
   isPlaying = true;
 }
 
-// Stop looping
 export function stopTransport() {
   if (window.hush) window.hush();
   isPlaying = false;
 }
 
-// Check if Strudel transport is playing
 export function getIsPlaying() {
   return isPlaying;
 }
 
-// Update BPM and reapply tempo/pattern if needed
 export function setBpm(newBpm) {
   const bpm = Number(newBpm);
   if (!Number.isFinite(bpm) || bpm <= 0) {
-    console.warn("Ignoring invalid BPM:", newBpm);
+    console.warn("[strudelEngine] Ignoring invalid BPM:", newBpm);
     return;
   }
 
@@ -157,81 +204,92 @@ export function setBpm(newBpm) {
   }
 }
 
-// Set the recorded/merged sequence that Strudel will loop
-// Allows tokens like "bd*2", "sd*4" etc. for note-speed density
+// Set the recorded sequence (accepts full tokens like "bd", "sd", "hh*2", etc.)
 export function setSequence(seq) {
-  // Only allow tokens we have samples for, but permit Strudel modifiers like "*2", "*4"
-  const cleaned = seq.filter((s) => {
-    const base = String(s).split("*")[0]; // e.g. "bd*2" -> "bd"
+  if (!Array.isArray(seq) || seq.length === 0) return;
 
-    return (
-      base === "bd" ||
-      base === "sd" ||
-      base === "hh" ||
-      base === "hho" ||
-      base === "cp"
-    );
-  });
+  engineState.sequence = [...seq];
 
-  if (cleaned.length === 0) {
-    // If nothing valid, don't overwrite the existing pattern
-    console.log("[strudelEngine] Ignoring empty/invalid sequence", seq);
-    return;
-  }
-
-  engineState.sequence = cleaned;
-  console.log("[strudelEngine] Updated engine sequence:", cleaned);
-
-  if (isPlaying) {
-    applyCurrentPattern();
-  }
+  if (isPlaying) applyCurrentPattern();
 }
 
-// Change drum preset for loops (to match pad kit)
-export async function setDrumPreset(preset) {
-  console.log("[strudelEngine] setDrumPreset →", preset);
-  engineState.drumPreset = preset;
-
-  // Force sample reload next time ensureStarted runs
-  window.__strudelSamplesLoaded = false;
-
-  // If already playing, reload samples and re-apply pattern
-  if (isPlaying) {
-    await ensureStarted();
-    applyCurrentPattern();
-  }
-}
-
-// Fire a single drum hit via Strudel (not padAudio)
+// Optional: fire a one-shot drum via Strudel
 export async function triggerPad(token) {
-  if (!["bd", "sd", "hh", "hho", "cp"].includes(token)) {
-    console.warn("[strudelEngine] triggerPad: unsupported token", token);
-    return;
-  }
+  const allowed = ["bd", "sd", "hh", "hho", "cp"];
+  if (!allowed.includes(token)) return;
 
   await ensureStarted();
 
-  const pat = window.sound(token);
-  if (pat && typeof pat.play === "function") {
+  let pat = window.sound(token);
+  if (typeof pat.gain === "function") {
+    pat = pat.gain(engineState.volume);
+  }
+  if (pat?.play) {
     pat.play();
-  } else {
-    console.warn("[strudelEngine] sound", token, "not found – is it loaded?");
   }
 }
 
-// Preload engine so the first action is instant
+// Preload engine so the first play is instant
 export async function warmUp() {
   if (window.__strudelWarm) return;
 
   await ensureStarted();
 
   try {
-    const silent = window.sound("bd").gain(0); // gain(0) = silent
+    const silent = window.sound("bd").gain(0);
     silent.play();
   } catch (e) {
-    console.warn("Warmup silent play failed:", e);
+    console.warn("[strudelEngine] Warmup silent play failed:", e);
   }
 
   window.__strudelWarm = true;
 }
 
+/* --------------------------------------------------
+   DRUM PRESET + FX
+-------------------------------------------------- */
+
+export async function setDrumPreset(name) {
+  if (!name || name === engineState.drumPreset) return;
+
+  engineState.drumPreset = name;
+
+  // Force reload of Strudel drum samples for new preset
+  window.__strudelSamplesLoaded = false;
+  if (started) {
+    await ensureStarted();
+    if (isPlaying) {
+      applyCurrentPattern();
+    }
+  }
+}
+
+// Volume from global FX slider
+export function setDrumVolume(value) {
+  const v = clamp01(Number(value));
+  engineState.volume = v;
+
+  if (isPlaying) {
+    applyCurrentPattern();
+  }
+}
+
+// Reverb / delay intensity from global FX slider
+export function setDrumReverbAmount(value) {
+  const v = clamp01(Number(value));
+  engineState.reverb = v;
+
+  if (isPlaying) {
+    applyCurrentPattern();
+  }
+}
+
+// Tone / brightness from global FX slider
+export function setDrumTone(value) {
+  const v = clamp01(Number(value));
+  engineState.tone = v;
+
+  if (isPlaying) {
+    applyCurrentPattern();
+  }
+}

@@ -1,82 +1,50 @@
 // src/components/SynthPanel/SynthPanel.jsx
-import "./SynthPanel.css";
 
 export default function SynthPanel({ activeVoice, params, onChange }) {
-  const handleChange = (name) => (e) => {
+  // Defensive defaults so the tab never crashes
+  const safeParams = params || {};
+  const attack = safeParams.attack ?? 0.01;
+  const release = safeParams.release ?? 0.4;
+
+  const handleSliderChange = (name) => (e) => {
     const value = Number(e.target.value);
-    onChange(activeVoice, name, value);
+    if (Number.isNaN(value)) return;
+    if (typeof onChange === "function") {
+      onChange(activeVoice, name, value);
+    }
   };
 
   return (
     <div className="synth-panel">
-      <h3 className="synth-title">
-        Sound Designer — {activeVoice === "lead" ? "Lead" : "Bass"}
-      </h3>
+      <h2 className="loops-title">
+        {activeVoice === "bass" ? "Bass Sound" : "Lead Sound"}
+      </h2>
 
-      <div className="synth-grid">
-        <div className="synth-control">
-          <label>Cutoff (Hz)</label>
-          <input
-            type="range"
-            min="200"
-            max="12000"
-            step="50"
-            value={params.cutoff}
-            onChange={handleChange("cutoff")}
-          />
-          <span className="synth-value">{Math.round(params.cutoff)}</span>
-        </div>
-
-        <div className="synth-control">
-          <label>Resonance (Q)</label>
-          <input
-            type="range"
-            min="0.1"
-            max="20"
-            step="0.1"
-            value={params.resonance}
-            onChange={handleChange("resonance")}
-          />
-          <span className="synth-value">{params.resonance.toFixed(1)}</span>
-        </div>
-
-        <div className="synth-control">
-          <label>Attack (s)</label>
+      <div className="effects-panel">
+        {/* Attack */}
+        <div className="effect-knob">
+          <span className="effect-knob-label">Attack</span>
           <input
             type="range"
             min="0.001"
-            max="1"
+            max="0.5"
             step="0.001"
-            value={params.attack}
-            onChange={handleChange("attack")}
+            value={attack}
+            onChange={handleSliderChange("attack")}
           />
-          <span className="synth-value">{params.attack.toFixed(3)}</span>
         </div>
 
-        <div className="synth-control">
-          <label>Release (s)</label>
+        {/* Release */}
+        <div className="effect-knob">
+          <span className="effect-knob-label">Release</span>
           <input
             type="range"
             min="0.05"
-            max="3"
+            max="2.0"
             step="0.01"
-            value={params.release}
-            onChange={handleChange("release")}
+            value={release}
+            onChange={handleSliderChange("release")}
           />
-          <span className="synth-value">{params.release.toFixed(2)}</span>
-        </div>
-
-        <div className="synth-control">
-          <label>Gain</label>
-          <input
-            type="range"
-            min="0.1"
-            max="1.5"
-            step="0.05"
-            value={params.gain}
-            onChange={handleChange("gain")}
-          />
-          <span className="synth-value">{params.gain.toFixed(2)}</span>
         </div>
       </div>
     </div>

@@ -1,59 +1,65 @@
 // src/components/SynthLoopsBar/SynthLoopsBar.jsx
 
-// Reuse the same styles as the drum loops
-import "../LoopsBar/LoopsBar.css";
+import "./SynthLoopsBar.css"; // optional, re-use LoopsBar styles or keep minimal
 
 export default function SynthLoopsBar({
   loops,
   activeIndex,
   onSaveLoop,
   onLoadLoop,
+  onToggleLoopActive,
 }) {
   return (
     <section className="loops-section">
       <h2 className="loops-title">Synth Loops</h2>
       <div className="loops-grid">
-        {loops.map((loop, index) => (
-          <div
-            key={loop.id}
-            className={
-              "loop-slot" + (activeIndex === index ? " loop-slot-active" : "")
-            }
-          >
-            <div className="loop-slot-header">
-              <span>{loop.name}</span>
-            </div>
+        {loops.map((loop, index) => {
+          const isActive = loop.isActive;
+          const hasPattern = loop.pattern && loop.pattern.length > 0;
 
-            <div className="loop-slot-body">
-              {loop.pattern && loop.pattern.length > 0
-                ? `${loop.pattern.length} notes`
-                : "Empty"}
-            </div>
-
+          return (
             <div
-              style={{
-                marginTop: "0.4rem",
-                display: "flex",
-                gap: "0.4rem",
-              }}
+              key={loop.id}
+              className={
+                "loop-slot" +
+                (isActive ? " loop-slot-active" : "") +
+                (activeIndex === index ? " loop-slot-current" : "")
+              }
             >
-              <button
-                type="button"
-                className="loop-btn-save"
-                onClick={() => onSaveLoop(index)}
-              >
-                Save current
-              </button>
-              <button
-                type="button"
-                className="loop-toggle loop-on"
-                onClick={() => onLoadLoop(index)}
-              >
-                Load
-              </button>
+              <div className="loop-slot-header">
+                <span>{loop.name}</span>
+                <button
+                  className={
+                    "loop-toggle " + (isActive ? "loop-on" : "loop-off")
+                  }
+                  onClick={() => onToggleLoopActive(index)}
+                >
+                  {isActive ? "On" : "Off"}
+                </button>
+              </div>
+
+              <div className="loop-slot-body">
+                {hasPattern ? "Pattern saved" : "Empty"}
+              </div>
+
+              <div style={{ marginTop: "0.35rem", display: "flex", gap: 8 }}>
+                <button
+                  className="loop-btn-save"
+                  onClick={() => onSaveLoop(index)}
+                >
+                  Save current pattern
+                </button>
+                <button
+                  className="loop-toggle"
+                  onClick={() => onLoadLoop(index)}
+                  disabled={!hasPattern}
+                >
+                  Load
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

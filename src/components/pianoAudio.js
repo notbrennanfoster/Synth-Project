@@ -7,16 +7,18 @@ let audioCtx = null;
 
 const voices = {
   lead: {
-    file: null,
+    // must exist: public/samples/Lead/04_juno_chorus_mid.wav
+    file: "04_juno_chorus_mid.wav",
     buffer: null,
-    baseMidi: 60, // middle C as base
+    baseMidi: 60, // middle C
     params: {
       attack: 0.01,
       release: 0.4,
     },
   },
   bass: {
-    file: null,
+    // must exist: public/samples/Bass/000_bass1.wav
+    file: "000_bass1.wav",
     buffer: null,
     baseMidi: 36, // C2
     params: {
@@ -152,13 +154,16 @@ function noteToMidi(note) {
 
 async function loadVoiceSample(voiceName) {
   const v = voices[voiceName];
-  if (!v || !v.file) return;
+  if (!v || !v.file) {
+    console.warn("[pianoAudio] no file set for voice", voiceName);
+    return;
+  }
 
   const ctx = getAudioContext();
   ensureGraph(ctx);
 
   const folder = voiceName === "lead" ? "Lead" : "Bass";
-  const url = `/samples/Synths/${folder}/${encodeURIComponent(v.file)}`;
+  const url = `/samples/${folder}/${encodeURIComponent(v.file)}`;
 
   console.log(`[pianoAudio] loading sample for ${voiceName}: ${url}`);
 
