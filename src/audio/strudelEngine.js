@@ -10,6 +10,7 @@ const BASE_BPM = 120; // reference tempo
 const engineState = {
   bpm: 100,
   sequence: ["bd", "sd", "hh", "bd"], // default pattern until user records one
+  drumPreset: "Default",              // current drum kit used for Strudel samples
 };
 
 // Convert BPM → cps and apply to Strudel
@@ -41,12 +42,17 @@ async function ensureStarted() {
     started = true;
   }
 
-  // Load samples from your folder: /samples/Drums/Default/
+  // Load samples from your folder: /samples/Drums/<drumPreset>/
   if (!window.__strudelSamplesLoaded) {
-    const SAMPLE_BASE = "/samples/Drums/Default/";
+    const SAMPLE_BASE = `/samples/Drums/${engineState.drumPreset}/`;
 
     if (typeof window.samples === "function") {
-      console.log("[strudelEngine] Loading drum samples from", SAMPLE_BASE);
+      console.log(
+        "[strudelEngine] Loading drum samples from",
+        SAMPLE_BASE,
+        "for preset",
+        engineState.drumPreset
+      );
 
       await window.samples(
         {
@@ -152,16 +158,20 @@ export function setBpm(newBpm) {
 }
 
 // Set the recorded/merged sequence that Strudel will loop
+// Allows tokens like "bd*2", "sd*4" etc. for note-speed density
 export function setSequence(seq) {
-  // Only allow tokens we have samples for
-  const cleaned = seq.filter(
-    (s) =>
-      s === "bd" ||
-      s === "sd" ||
-      s === "hh" ||
-      s === "hho" ||
-      s === "cp"
-  );
+  // Only allow tokens we have samples for, but permit Strudel modifiers like "*2", "*4"
+  const cleaned = seq.filter((s) => {
+    const base = String(s).split("*")[0]; // e.g. "bd*2" -> "bd"
+
+    return (
+      base === "bd" ||
+      base === "sd" ||
+      base === "hh" ||
+      base === "hho" ||
+      base === "cp"
+    );
+  });
 
   if (cleaned.length === 0) {
     // If nothing valid, don't overwrite the existing pattern
@@ -173,6 +183,21 @@ export function setSequence(seq) {
   console.log("[strudelEngine] Updated engine sequence:", cleaned);
 
   if (isPlaying) {
+    applyCurrentPattern();
+  }
+}
+
+// Change drum preset for loops (to match pad kit)
+export async function setDrumPreset(preset) {
+  console.log("[strudelEngine] setDrumPreset →", preset);
+  engineState.drumPreset = preset;
+
+  // Force sample reload next time ensureStarted runs
+  window.__strudelSamplesLoaded = false;
+
+  // If already playing, reload samples and re-apply pattern
+  if (isPlaying) {
+    await ensureStarted();
     applyCurrentPattern();
   }
 }
@@ -209,3 +234,4 @@ export async function warmUp() {
 
   window.__strudelWarm = true;
 }
+
