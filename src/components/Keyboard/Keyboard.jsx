@@ -1,3 +1,5 @@
+// src/components/Keyboard/Keyboard.jsx
+import { useRef } from "react";
 import "./Keyboard.css";
 
 const WHITE_KEYS = [
@@ -18,33 +20,86 @@ const BLACK_KEYS = [
   { label: "A#2", position: 12 },
 ];
 
-export default function Keyboard({ onKeyPress }) {
-  return (
-    <div className="keyboard-panel">
-      <div className="keyboard-wrapper">
-        {/* white keys */}
-        <div className="white-keys">
-          {WHITE_KEYS.map((note) => (
-            <button
-              key={note}
-              className="key key-white"
-              onClick={() => onKeyPress && onKeyPress(note)}
-              aria-label={note}
-            />
-          ))}
-        </div>
+// helper: apply octave offset to note strings like "C3" / "C#2"
+function applyOctave(note, offset) {
+  if (!offset) return note;
 
-        {/* black keys */}
-        <div className="black-keys">
-          {BLACK_KEYS.map((key) => (
-            <button
-              key={key.label}
-              className={`key key-black black-pos-${key.position}`}
-              onClick={() => onKeyPress && onKeyPress(key.label)}
-              aria-label={key.label}
-            />
-          ))}
-        </div>
+  const match = note.match(/^(.+?)(\d)$/);
+  if (!match) return note;
+
+  const [, prefix, octaveStr] = match;
+  const octaveNum = parseInt(octaveStr, 10);
+  if (Number.isNaN(octaveNum)) return note;
+
+  const newOctave = Math.min(8, Math.max(0, octaveNum + offset));
+  return `${prefix}${newOctave}`;
+}
+
+export default function Keyboard({ onKeyPress, octaveOffset = 0 }) {
+  // only one held key/timer for now
+  const holdTimerRef = useRef(null);
+
+  const startHeldNote = (baseNote) => {
+    if (!onKeyPress) return;
+
+    const note = applyOctave(baseNote, octaveOffset);
+
+    // Play once immediately
+    onKeyPress(note);
+
+    // clear any old timer
+    if (holdTimerRef.current) {
+      clearInterval(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+
+    // retrigger while held
+    holdTimerRef.current = setInterval(() => {
+      onKeyPress(note);
+    }, 160); // tweak if you want faster/slower repeat
+  };
+
+  const stopHeldNote = () => {
+    if (holdTimerRef.current) {
+      clearInterval(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+
+  return (
+    <div className="keyboard-wrapper">
+      {/* White key row */}
+      <div className="white-keys">
+        {WHITE_KEYS.map((note) => (
+          <button
+            key={note}
+            className="key key-white"
+            type="button"
+            onMouseDown={() => startHeldNote(note)}
+            onMouseUp={stopHeldNote}
+            onMouseLeave={stopHeldNote}
+          >
+            <span className="key-label">{note}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Black keys overlay */}
+      <div className="black-keys">
+        {BLACK_KEYS.map((key) => (
+          <button
+            key={key.label}
+            className={`key key-black black-pos-${key.position}`}
+            type="button"
+            onMouseDown={() => startHeldNote(key.label)}
+            onMouseUp={stopHeldNote}
+            onMouseLeave={stopHeldNote}
+          >
+            <span className="key-label key-label-black">
+              {key.label}
+            </span>
+          </button>
+        ))}
       </div>
     </div>
   );
