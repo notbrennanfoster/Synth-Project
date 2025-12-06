@@ -9,8 +9,8 @@ import {
   warmUp,
   setDrumPreset,
   setDrumVolume,
-  setDrumReverbAmount,  // ⬅ NEW
-  setDrumTone,          // ⬅ NEW
+  setDrumReverbAmount,
+  setDrumTone,
 } from "./audio/strudelEngine";
 
 import {
@@ -35,7 +35,6 @@ import {
 
 import ControllerShell from "./components/ControllerShell/ControllerShell.jsx";
 import TransportBar from "./components/TransportBar/TransportBar.jsx";
-// import InstrumentSelector from "./components/InstrumentSelector/InstrumentSelector.jsx";
 import DrumKitSelector from "./components/DrumKitSelector/DrumKitSelector.jsx";
 import PadGrid from "./components/PadGrid/PadGrid.jsx";
 import EffectsPanel from "./components/EffectsPanel/EffectsPanel.jsx";
@@ -53,7 +52,7 @@ import "./App.css";
 const PADS = [
   { label: "Kick", token: "bd" },
   { label: "Snare", token: "sd" },
-  { label: "HatC", token: "hh" }, // closed hat
+  { label: "HatC", token: "hh" },  // closed hat
   { label: "HatO", token: "hho" }, // open hat
   { label: "Crash", token: "cp" },
 ];
@@ -110,10 +109,9 @@ const BASS_PRESETS = [
 
 const ALL_SYNTH_PRESETS = [...LEAD_PRESETS, ...BASS_PRESETS];
 
-/* ------------- LOOP MERGE HELPERS ------------- */
+/* ------------- LOOP MERGE HELPER (DRUMS) ------------- */
 
-// Drums: merge all active drum loops into one flat Strudel sequence
-function buildMergedDrumPattern(loops, fallbackSequence) {
+function buildMergedPattern(loops, fallbackSequence) {
   const activePatterns = loops
     .filter((l) => l.isActive && l.pattern && l.pattern.length > 0)
     .map((l) => l.pattern);
@@ -130,31 +128,6 @@ function buildMergedDrumPattern(loops, fallbackSequence) {
       if (pattern[i]) merged.push(pattern[i]);
     });
   }
-
-  return merged;
-}
-
-// Synth: merge all active synth loops into a 16-step pattern
-function buildMergedSynthPattern(loops, fallbackPattern) {
-  const active = loops.filter(
-    (l) => l.isActive && l.pattern && l.pattern.length > 0
-  );
-
-  if (active.length === 0) {
-    return fallbackPattern || [];
-  }
-
-  const maxLen = Math.max(...active.map((l) => l.pattern.length));
-  const merged = Array.from({ length: maxLen }, () => []);
-
-  active.forEach((loop) => {
-    loop.pattern.forEach((stepNotes, i) => {
-      if (!merged[i]) merged[i] = [];
-      if (Array.isArray(stepNotes)) {
-        merged[i].push(...stepNotes);
-      }
-    });
-  });
 
   return merged;
 }
@@ -204,7 +177,7 @@ export default function App() {
     },
   ]);
 
-  // Synth loops (16-step patterns)
+  // Synth loops (for piano side)
   const [synthLoops, setSynthLoops] = useState([
     { id: 0, name: "Synth 1", pattern: [], isActive: false },
     { id: 1, name: "Synth 2", pattern: [], isActive: false },
@@ -213,24 +186,24 @@ export default function App() {
   ]);
   const [activeSynthLoopIndex, setActiveSynthLoopIndex] = useState(null);
 
-  const [instrument, setInstrument] = useState("piano");
+  const [instrument] = useState("piano"); // kept for loop metadata if needed
 
   // 🔊 Global FX strip (universal sliders)
   const [effects, setEffects] = useState({
     volume: 0.8, // master volume
-    reverb: 0.4, // global reverb
-    tone: 0.5, // brightness / color
+    reverb: 0.4, // global reverb (and delay)
+    tone: 0.5,   // brightness / color
   });
 
   // drum kit preset (folder under /public/samples/Drums)
   const [padPreset, setPadPresetState] = useState("Default");
 
-  // note speed (quarter / eighth / sixteenth) for DRUM recording
+  // note speed (quarter / eighth / sixteenth)
   const [noteSpeed, setNoteSpeed] = useState("1x");
 
   // PIANO / SYNTH STATE
-  const [pianoSequence, setPianoSequence] = useState([]); // flat debug sequence
-  const [pianoPattern, setPianoPattern] = useState([]); // 16-step pattern
+  const [pianoSequence, setPianoSequence] = useState([]);
+  const [pianoPattern, setPianoPattern] = useState([]); // 16 steps
   const [activeVoice, setActiveVoice] = useState("lead"); // "lead" | "bass"
   const [synthPresetId, setSynthPresetId] = useState("lead_juno");
   const [synthParams, setSynthParamsState] = useState(() =>
@@ -242,35 +215,26 @@ export default function App() {
   const [octaveOffset, setOctaveOffset] = useState(1);
 
   // refs
-  const changeTimerRef = useRef(null); // drums: quantized loop switching
-  const pianoLoopTimerRef = useRef(null); // synth: playback loop
-  const pianoSequenceRef = useRef([]); // latest flat sequence
-  const pianoPatternRef = useRef([]); // latest 16-step pattern
+  const changeTimerRef = useRef(null);        // drums: quantized loop switching
+  const pianoLoopTimerRef = useRef(null);     // piano: playback loop
+  const pianoSequenceRef = useRef([]);        // latest flat sequence
+  const pianoPatternRef = useRef([]);         // latest 16-step pattern
 
   // recording timing for piano
-  const pianoEventsRef = useRef([]); // [{ voice, note, beatOffset }]
-  const pianoRecordStartRef = useRef(null); // performance.now() when record starts
+  const pianoEventsRef = useRef([]);
+  const pianoRecordStartRef = useRef(null);
 
   /* ---------- ONE-TIME SETUP ---------- */
 
   useEffect(() => {
-    warmUp(); // Strudel engine
-    initPadAudio(); // drum samples
-    initPianoAudio(); // synth context / graph
-
-    // apply initial global FX to both engines
-    setPadVolume(effects.volume);
-    setSynthVolume(effects.volume);
-    setPadReverbAmount(effects.reverb);
-    setSynthReverb(effects.reverb);
-    setPadTone(effects.tone);
-    setSynthTone(effects.tone);
+    warmUp();         // strudel engine
+    initPadAudio();   // drum samples
+    initPianoAudio(); // synth
 
     return () => {
       if (changeTimerRef.current) clearTimeout(changeTimerRef.current);
       if (pianoLoopTimerRef.current) clearInterval(pianoLoopTimerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // keep refs in sync with state
@@ -282,19 +246,19 @@ export default function App() {
     pianoPatternRef.current = pianoPattern;
   }, [pianoPattern]);
 
-  // reload drum samples whenever the kit preset changes
+  // reload drum samples whenever the preset changes
   useEffect(() => {
-    setPadPreset(padPreset); // one-shots
+    setPadPreset(padPreset);  // pad one-shots
     initPadAudio();
-
-    setDrumPreset(padPreset); // Strudel loop engine
+    setDrumPreset(padPreset); // Strudel engine
   }, [padPreset]);
 
   /* ---------- HELPERS: PIANO PATTERN BUILDERS ---------- */
 
   const buildPianoPatternFromEvents = (eventsInput) => {
-    const events =
-      eventsInput && eventsInput.length ? eventsInput : pianoEventsRef.current;
+    const events = eventsInput && eventsInput.length
+      ? eventsInput
+      : pianoEventsRef.current;
 
     if (!events.length) {
       setPianoPattern([]);
@@ -302,28 +266,22 @@ export default function App() {
       return;
     }
 
-    // 1) sort by time
     const sorted = [...events].sort((a, b) => a.beatOffset - b.beatOffset);
-
-    // 2) normalize so first note is at 0
     const minBeat = sorted[0].beatOffset;
     const normalized = sorted.map((e) => ({
       ...e,
       beatOffset: e.beatOffset - minBeat,
     }));
 
-    // 3) total span in beats (avoid zero)
     const lastBeat = normalized[normalized.length - 1].beatOffset;
-    const spanBeats = Math.max(lastBeat, 0.25); // at least a quarter note
+    const spanBeats = Math.max(lastBeat, 0.25);
 
-    // 4) scale so we fill 4 beats (1 bar)
-    const scale = 4 / spanBeats;
+    const scale = 4 / spanBeats; // map to 1 bar
     const scaled = normalized.map((e) => ({
       ...e,
       beatOffset: e.beatOffset * scale,
     }));
 
-    // 5) quantize to 16-step grid (4 steps per beat, 16 steps per bar)
     const steps = Array.from({ length: 16 }, () => []);
 
     scaled.forEach((e) => {
@@ -338,10 +296,25 @@ export default function App() {
     setPianoPattern(steps);
     pianoPatternRef.current = steps;
 
-    // flat sequence for debug / saving
     const flatSeq = scaled.map((e) => `${e.voice}:${e.note}`);
     setPianoSequence(flatSeq);
     pianoSequenceRef.current = flatSeq;
+  };
+
+  const buildPianoPatternFromSequenceEven = (seq) => {
+    if (!seq || seq.length === 0) {
+      setPianoPattern([]);
+      pianoPatternRef.current = [];
+      return;
+    }
+    const steps = Array.from({ length: 16 }, () => []);
+    const N = seq.length;
+    for (let i = 0; i < N; i++) {
+      const step = Math.round((i / N) * 15);
+      steps[step].push(seq[i]);
+    }
+    setPianoPattern(steps);
+    pianoPatternRef.current = steps;
   };
 
   /* ---------- HELPERS: PIANO LOOP ---------- */
@@ -354,13 +327,11 @@ export default function App() {
   };
 
   const startPianoLoop = () => {
-    if (pianoLoopTimerRef.current) return; // already running
-
+    if (pianoLoopTimerRef.current) return;
     const pattern = pianoPatternRef.current;
     if (!pattern || pattern.length === 0) return;
 
-    // 16th-note step at current BPM
-    const stepMs = ((60000 / bpm) * 4) / 16;
+    const stepMs = ((60000 / bpm) * 4) / 16; // 16ths
 
     let stepIndex = 0;
 
@@ -389,14 +360,12 @@ export default function App() {
 
   const updateSequenceForLoops = (updatedLoops, { quantize = true } = {}) => {
     if (!isPlayingState || !quantize) {
-      const merged = buildMergedDrumPattern(updatedLoops, sequence);
+      const merged = buildMergedPattern(updatedLoops, sequence);
       applySequenceToEngine(merged);
       return;
     }
 
-    if (changeTimerRef.current) {
-      clearTimeout(changeTimerRef.current);
-    }
+    if (changeTimerRef.current) clearTimeout(changeTimerRef.current);
 
     const beatsPerBar = 4;
     const barMs = (60000 / bpm) * beatsPerBar;
@@ -408,22 +377,21 @@ export default function App() {
     const currentSeqSnapshot = [...sequence];
 
     changeTimerRef.current = setTimeout(() => {
-      const merged = buildMergedDrumPattern(snapshotLoops, currentSeqSnapshot);
+      const merged = buildMergedPattern(snapshotLoops, currentSeqSnapshot);
       applySequenceToEngine(merged);
       changeTimerRef.current = null;
     }, barMs);
   };
 
-  // Turn "bd" into "bd", "bd*2", "bd*4" based on current noteSpeed
   const applySpeedToToken = (token) => {
     switch (noteSpeed) {
       case "2x":
-        return `${token}*2`; // eighths
+        return `${token}*2`;
       case "4x":
-        return `${token}*4`; // sixteenths
+        return `${token}*4`;
       case "1x":
       default:
-        return token; // quarters
+        return token;
     }
   };
 
@@ -445,29 +413,17 @@ export default function App() {
 
   const handlePlayClick = () => {
     if (getIsPlaying()) {
-      // STOP
       stopTransport();
       setIsPlayingState(false);
       stopPianoLoop();
     } else {
-      // START
-      const merged = buildMergedDrumPattern(loops, sequence);
+      const merged = buildMergedPattern(loops, sequence);
       const seqForEngine = merged.length > 0 ? merged : sequence;
       applySequenceToEngine(seqForEngine);
 
-      // merged synth pattern from all active synth loops
-      const mergedSynth = buildMergedSynthPattern(
-        synthLoops,
-        pianoPatternRef.current
-      );
-      if (mergedSynth.length > 0) {
-        setPianoPattern(mergedSynth);
-        pianoPatternRef.current = mergedSynth;
-      }
-
       startTransport();
       setIsPlayingState(true);
-      startPianoLoop(); // run piano loop in parallel (if we have pattern)
+      startPianoLoop();
     }
   };
 
@@ -476,15 +432,13 @@ export default function App() {
       const next = !prev;
 
       if (next) {
-        // RECORD ON
         pianoRecordStartRef.current = performance.now();
         pianoEventsRef.current = [];
 
-        applySequenceToEngine([]); // clear drum sequence if desired
+        applySequenceToEngine([]);
         setPianoSequence([]);
         setPianoPattern([]);
       } else {
-        // RECORD OFF → build pattern from recorded synth events
         buildPianoPatternFromEvents();
         pianoRecordStartRef.current = null;
       }
@@ -507,7 +461,6 @@ export default function App() {
     setBpmState(numeric);
     setBpm(numeric);
 
-    // resync piano loop timing if we’re playing
     if (isPlayingState) {
       stopPianoLoop();
       startPianoLoop();
@@ -522,8 +475,8 @@ export default function App() {
         i === index
           ? {
               ...loop,
-              pattern: sequence, // saves pattern with *2/*4 modifiers
-              instrument: instrument,
+              pattern: sequence,
+              instrument,
               drumPreset: padPreset,
             }
           : loop
@@ -541,12 +494,6 @@ export default function App() {
 
       const toggled = updated[index];
 
-      // When a loop becomes active, restore its saved instrument
-      if (toggled.isActive && toggled.instrument) {
-        setInstrument(toggled.instrument);
-      }
-
-      // When a loop becomes active, restore its saved drum preset
       if (toggled.isActive && toggled.drumPreset) {
         setPadPresetState(toggled.drumPreset);
         setDrumPreset(toggled.drumPreset);
@@ -560,15 +507,13 @@ export default function App() {
   /* ---------- HANDLERS: SYNTH / PIANO ---------- */
 
   const handleKeyPress = (note) => {
-    // play on the currently selected voice (lead or bass)
     playNote(note, activeVoice);
 
-    // record timing relative to record start if recording is on
     if (isRecording && pianoRecordStartRef.current != null) {
       const now = performance.now();
       const dtMs = now - pianoRecordStartRef.current;
       const dtSec = dtMs / 1000;
-      const beatOffset = dtSec * (bpm / 60); // seconds → beats
+      const beatOffset = dtSec * (bpm / 60);
 
       pianoEventsRef.current.push({
         voice: activeVoice,
@@ -605,91 +550,52 @@ export default function App() {
     setVoiceSample(preset.voice, preset.file);
   };
 
-const handleEffectChange = (name, value) => {
-  const numeric = Number(value);
-  if (Number.isNaN(numeric)) return;
+  const handleEffectChange = (name, value) => {
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) return;
 
-  // update UI state
-  setEffects((prev) => ({ ...prev, [name]: numeric }));
+    setEffects((prev) => ({ ...prev, [name]: numeric }));
 
-  // route to audio engines
-  switch (name) {
-    case "volume":
-      setPadVolume(numeric);
-      setSynthVolume(numeric);
-      setDrumVolume(numeric);        
-      break;
-
-    case "reverb":
-      setPadReverbAmount(numeric);
-      setSynthReverb(numeric);
-      setDrumReverbAmount(numeric);    
-      break;
-
-    case "tone":
-      setPadTone(numeric);
-      setSynthTone(numeric);
-      setDrumTone(numeric);            
-      break;
-
-    default:
-      break;
-  }
-};
+    switch (name) {
+      case "volume":
+        setPadVolume(numeric);
+        setSynthVolume(numeric);
+        setDrumVolume(numeric);
+        break;
+      case "reverb":
+        setPadReverbAmount(numeric);
+        setSynthReverb(numeric);
+        setDrumReverbAmount(numeric);
+        break;
+      case "tone":
+        setPadTone(numeric);
+        setSynthTone(numeric);
+        setDrumTone(numeric);
+        break;
+      default:
+        break;
+    }
+  };
 
   /* ---------- HANDLERS: SYNTH LOOPS ---------- */
 
   const handleSaveSynthLoop = (index) => {
-    if (!pianoPatternRef.current || pianoPatternRef.current.length === 0)
-      return;
-
-    const patternCopy = pianoPatternRef.current.map((step) => [...step]);
+    if (pianoSequence.length === 0) return;
 
     setSynthLoops((prev) =>
       prev.map((loop, i) =>
-        i === index ? { ...loop, pattern: patternCopy } : loop
+        i === index ? { ...loop, pattern: pianoSequence } : loop
       )
     );
     setActiveSynthLoopIndex(index);
   };
 
   const handleLoadSynthLoop = (index) => {
-    const storedPattern = synthLoops[index]?.pattern;
-    if (!storedPattern || storedPattern.length === 0) return;
-
-    // load this loop into the piano editor, but do NOT force it active
-    const patternCopy = storedPattern.map((step) => [...step]);
-    setPianoPattern(patternCopy);
-    pianoPatternRef.current = patternCopy;
-
-    // rebuild a flat debug sequence
-    const flat = [];
-    patternCopy.forEach((step) => {
-      step.forEach((entry) => flat.push(entry));
-    });
-    setPianoSequence(flat);
-    pianoSequenceRef.current = flat;
-
+    const patternSeq = synthLoops[index]?.pattern || [];
+    pianoSequenceRef.current = patternSeq;
+    setPianoSequence(patternSeq);
+    buildPianoPatternFromSequenceEven(patternSeq);
     setActiveSynthLoopIndex(index);
-  };
-
-  const handleToggleSynthLoopActive = (index) => {
-    setSynthLoops((prev) => {
-      const updated = prev.map((loop, i) =>
-        i === index ? { ...loop, isActive: !loop.isActive } : loop
-      );
-
-      const merged = buildMergedSynthPattern(updated, pianoPatternRef.current);
-      setPianoPattern(merged);
-      pianoPatternRef.current = merged;
-
-      if (isPlayingState) {
-        stopPianoLoop();
-        startPianoLoop();
-      }
-
-      return updated;
-    });
   };
 
   /* ------------------- RENDER ------------------- */
@@ -708,7 +614,7 @@ const handleEffectChange = (name, value) => {
       }}
     >
       <ControllerShell>
-        {/* Top bar: transport left, selectors right */}
+        {/* Top bar: transport left, drum kit right */}
         <div className="top-section">
           <TransportBar
             isPlaying={isPlayingState}
@@ -720,7 +626,6 @@ const handleEffectChange = (name, value) => {
           />
 
           <div className="top-right-selectors">
-            
             <DrumKitSelector
               padPreset={padPreset}
               onPresetChange={setPadPresetState}
@@ -731,15 +636,23 @@ const handleEffectChange = (name, value) => {
         {/* Divider under top bar */}
         <div className="top-divider" />
 
-        {/* Note speed selector (drums) */}
-        <NoteSpeedSelector value={noteSpeed} onChange={setNoteSpeed} />
+        {/* Middle controls: note speed (left) + global FX (center) */}
+        <div className="middle-controls">
+          <div className="note-speed-wrap">
+            <NoteSpeedSelector value={noteSpeed} onChange={setNoteSpeed} />
+          </div>
+          <div className="effects-wrap">
+            <EffectsPanel effects={effects} onEffectChange={handleEffectChange} />
+          </div>
+          <div className="middle-spacer" />
+        </div>
 
-        {/* Main control grid */}
+        {/* Main control area: pads + piano */}
         <div
+          className="main-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "2fr 2fr",
-            gridTemplateRows: "auto auto",
             gap: "1.5rem",
             marginTop: "1.5rem",
           }}
@@ -812,39 +725,40 @@ const handleEffectChange = (name, value) => {
             ) : (
               <SynthPanel
                 activeVoice={activeVoice}
-                params={
-                  synthParams[activeVoice] || {
-                    attack: 0.01,
-                    release: 0.4,
-                  }
-                }
+                params={synthParams[activeVoice]}
                 onChange={handleSynthParamChange}
               />
             )}
           </div>
+        </div>
 
-          {/* Loops (bottom left): drums + synth */}
-          <div>
+        {/* Bottom: loops row spanning full width */}
+        <div className="bottom-loops-row">
+          <div className="loops-column">
             <LoopsBar
               loops={loops}
               onSaveLoop={handleSaveLoop}
               onToggleLoopActive={handleToggleLoopActive}
             />
+          </div>
+          <div className="loops-column">
             <SynthLoopsBar
               loops={synthLoops}
               activeIndex={activeSynthLoopIndex}
               onSaveLoop={handleSaveSynthLoop}
               onLoadLoop={handleLoadSynthLoop}
-              onToggleLoopActive={handleToggleSynthLoopActive}
             />
           </div>
-
-          {/* Effects (bottom right) */}
-          <EffectsPanel effects={effects} onEffectChange={handleEffectChange} />
         </div>
 
         {/* Debug readouts */}
-        <p style={{ marginTop: "1.5rem", opacity: 0.75, fontSize: "0.9rem" }}>
+        <p
+          style={{
+            marginTop: "1.5rem",
+            opacity: 0.75,
+            fontSize: "0.9rem",
+          }}
+        >
           Drum Sequence: {sequence.join(" ")}
           <br />
           Piano Sequence: {pianoSequence.join(" ")}

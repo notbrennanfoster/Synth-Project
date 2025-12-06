@@ -108,3 +108,38 @@
   background: #b91c1c;
   color: #f5f5f5;
 }
+
+/* Row under the top bar: note speed + global FX */
+.middle-controls {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.note-speed-wrap {
+  flex: 0 0 auto;
+}
+
+.effects-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  margin-right: 200px;
+}
+
+.middle-spacer {
+  flex: 0 0 80px; /* just a little right padding to balance */
+}
+
+/* Bottom loops row: drums + synth side by side */
+.bottom-loops-row {
+  margin-top: 1.8rem;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.bottom-loops-row .loops-column {
+  flex: 1 1 0;
+}
