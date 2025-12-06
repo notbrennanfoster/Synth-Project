@@ -18,46 +18,31 @@ const BLACK_KEYS = [
   { label: "A#2", position: 12 },
 ];
 
-export default function Keyboard({ onKeyPress, scale = 1.5 }) {
+export default function Keyboard({ onKeyPress }) {
   return (
-    <div
-      className="keyboard-container"
-      style={{
-        width: "100%",
-        display: "flex",
-        justifyContent: "center",
-      }}
-    >
-      <div
-        className="keyboard-wrapper"
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: "center",
-        }}
-      >
+    <div className="keyboard-panel">
+      <div className="keyboard-wrapper">
+        {/* white keys */}
         <div className="white-keys">
           {WHITE_KEYS.map((note) => (
             <button
               key={note}
               className="key key-white"
               onClick={() => onKeyPress && onKeyPress(note)}
-            >
-              <span className="key-label">{note}</span>
-            </button>
+              aria-label={note}
+            />
           ))}
         </div>
 
+        {/* black keys */}
         <div className="black-keys">
           {BLACK_KEYS.map((key) => (
             <button
               key={key.label}
               className={`key key-black black-pos-${key.position}`}
               onClick={() => onKeyPress && onKeyPress(key.label)}
-            >
-              <span className="key-label key-label-black">
-                {key.label}
-              </span>
-            </button>
+              aria-label={key.label}
+            />
           ))}
         </div>
       </div>

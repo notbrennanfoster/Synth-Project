@@ -1,92 +1,97 @@
-/* Keyboard.css */
-
+/* outer container: align keyboard to the left of its grid cell */
 .keyboard-panel {
-  margin: 1rem 0 1.4rem;
-  padding: 1.2rem;
-  border-radius: 20px;
-  background: #b91c1c;
-  box-shadow: inset 0 0 25px rgba(0,0,0,0.55);
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+  margin-left: -180px;
 }
 
+/* inner wrapper: size + positioning */
 .keyboard-wrapper {
   position: relative;
-  max-width: 720px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 800px;        /* controls how far it reaches toward the pads */
+  height: 180px;
 }
 
-.white-keys {
-  display: flex;
-  padding: 0.5rem;
-  background: #000;
-  border-radius: 16px;
-}
-
+/* base key styles */
 .key {
   position: relative;
   border: none;
+  outline: none;
+  cursor: pointer;
 }
 
-/* White keys */
+/* ================= WHITE KEYS ================= */
+
+.white-keys {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 0.5rem 0.75rem;
+  background: #000;
+  border-radius: 16px;
+  box-sizing: border-box;
+}
+
+/* square, wider white keys */
 .key-white {
   flex: 1;
-  height: 120px;
-  background: linear-gradient(to bottom, #ffffff, #dcdcdc);
-  border-left: 1px solid #bbb;
-  border-right: 1px solid #bbb;
-  border-radius: 0 0 10px 10px;
+  height: 140px;
+  margin: 0 4px;
+  background: linear-gradient(to bottom, #ffffff, #e6e6e6);
+  border-radius: 4px;
+  border: 1px solid #cfcfcf;
 }
 
 .key-white:active {
-  background: linear-gradient(to bottom, #ececec, #c9c9c9);
+  transform: translateY(3px);
+  background: linear-gradient(to bottom, #e2e2e2, #cccccc);
 }
 
-/* Black keys */
+/* ================= BLACK KEYS ================= */
+
 .black-keys {
   position: absolute;
+  top: 0.6rem;
   left: 0;
   right: 0;
-  top: 0.5rem;
   height: 90px;
-  pointer-events: none;
+  pointer-events: none; /* so clicks fall through except on keys */
 }
 
+/* square-ish black keys */
 .key-black {
   position: absolute;
-  width: 6%;
+  width: 4%;              /* wider/narrower black keys */
   height: 90px;
-  background: linear-gradient(to bottom, #333, #000);
-  border-radius: 0 0 6px 6px;
-  box-shadow: 0 8px 15px rgba(0,0,0,0.8);
+  background: linear-gradient(to bottom, #444, #000);
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
   pointer-events: auto;
 }
 
 .key-black:active {
-  background: linear-gradient(to bottom, #222, #000);
+  transform: translateY(4px);
+  background: linear-gradient(to bottom, #333, #000);
 }
 
-/* KEY LABELS */
-.key-label {
-  position: absolute;
-  bottom: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.6rem;
-  opacity: 0.9;
-  color: #111111; /* black on white keys */
-}
-
+/* we’re not showing labels, so hide any label spans just in case */
+.key-label,
 .key-label-black {
-  color: #f5f5f5; /* white on black keys */
+  display: none;
 }
 
-/* Black key positions across 14 white keys */
-.black-pos-0 { left: 6%; }
-.black-pos-1 { left: 13%; }
-.black-pos-3 { left: 27%; }
-.black-pos-4 { left: 34%; }
-.black-pos-5 { left: 41%; }
-.black-pos-7 { left: 55%; }
-.black-pos-8 { left: 62%; }
-.black-pos-10 { left: 76%; }
-.black-pos-11 { left: 83%; }
-.black-pos-12 { left: 90%; }
+/* ================= BLACK KEY POSITIONS ================= */
+/* tuned for 14 white keys; adjust a bit if you want tighter spacing */
+
+.black-pos-0 { left: 6.5%; }
+.black-pos-1 { left: 14%; }
+.black-pos-3 { left: 28.5%; }
+.black-pos-4 { left: 36%; }
+.black-pos-5 { left: 43.5%; }
+.black-pos-7 { left: 58%; }
+.black-pos-8 { left: 65.5%; }
+.black-pos-10 { left: 80%; }
+.black-pos-11 { left: 87.5%; }
+.black-pos-12 { left: 95%; }
