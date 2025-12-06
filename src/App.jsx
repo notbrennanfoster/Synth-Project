@@ -9,18 +9,15 @@ import {
   warmUp,
 } from "./audio/strudelEngine";
 
-import { playPad, initPadAudio } from "./components/padAudio";
-
+import { playPad, initPadAudio, setPadPreset } from "./components/padAudio";
+import DrumKitSelector from "./components/DrumKitSelector/DrumKitSelector.jsx";
 import ControllerShell from "./components/ControllerShell/ControllerShell.jsx";
 import TransportBar from "./components/TransportBar/TransportBar.jsx";
 import InstrumentSelector from "./components/InstrumentSelector/InstrumentSelector.jsx";
-import Pad from "./components/Pad/Pad.jsx";
 import PadGrid from "./components/PadGrid/PadGrid.jsx";
 import EffectsPanel from "./components/EffectsPanel/EffectsPanel.jsx";
-import EffectKnob from "./components/EffectKnob/EffectKnob.jsx";
 import Keyboard from "./components/Keyboard/Keyboard.jsx";
 import LoopsBar from "./components/LoopsBar/LoopsBar.jsx";
-import SequenceButton from "./components/SequenceButton/SequenceButton.jsx";
 import "./App.css";
 
 // Merge all active loops into one sequence.
@@ -49,8 +46,9 @@ function buildMergedPattern(loops, fallbackSequence) {
 const PADS = [
   { label: "Kick", token: "bd" },
   { label: "Snare", token: "sd" },
-  { label: "Hat", token: "hh" },
-  { label: "Clap", token: "cp" },
+  { label: "HatC", token: "hhc" },
+  { label: "HatO", token: "hho" },
+  { label: "Crash", token: "cr" },
 ];
 
 export default function App() {
@@ -74,18 +72,27 @@ export default function App() {
     reverb: 0.4,
   });
 
+  // current drum preset (matches folder name under /public/Drums)
+  const [padPreset, setPadPresetState] = useState("Default");
+
   // timer for quantized loop changes
   const changeTimerRef = useRef(null);
 
+  // one-time setup (strudel warmup, cleanup)
   useEffect(() => {
     warmUp();
-    initPadAudio();
     return () => {
       if (changeTimerRef.current) {
         clearTimeout(changeTimerRef.current);
       }
     };
   }, []);
+
+  // reload drum samples whenever the preset changes
+  useEffect(() => {
+    setPadPreset(padPreset);
+    initPadAudio();
+  }, [padPreset]);
 
   // ---------- helpers ----------
 
@@ -97,7 +104,6 @@ export default function App() {
       return;
     }
 
-    // If we're playing, schedule an update for the next bar.
     if (changeTimerRef.current) {
       clearTimeout(changeTimerRef.current);
     }
@@ -105,7 +111,6 @@ export default function App() {
     const beatsPerBar = 4; // simple 4/4 assumption
     const barMs = (60000 / bpm) * beatsPerBar;
 
-    // Take a snapshot of the loops at this moment
     const snapshot = updatedLoops.map((l) => ({
       ...l,
       pattern: [...l.pattern],
@@ -137,7 +142,6 @@ export default function App() {
       stopTransport();
       setIsPlayingState(false);
     } else {
-      // when starting playback, apply loops immediately (start at bar 1)
       const merged = buildMergedPattern(loops, sequence);
       if (merged.length > 0) {
         setSequence(merged);
@@ -186,7 +190,7 @@ export default function App() {
       const updated = prev.map((loop, i) =>
         i === index ? { ...loop, pattern: sequence } : loop
       );
-      updateSequenceForLoops(updated); // quantized if playing
+      updateSequenceForLoops(updated);
       return updated;
     });
   };
@@ -196,14 +200,13 @@ export default function App() {
       const updated = prev.map((loop, i) =>
         i === index ? { ...loop, isActive: !loop.isActive } : loop
       );
-      updateSequenceForLoops(updated); // quantized if playing
+      updateSequenceForLoops(updated);
       return updated;
     });
   };
 
   const handleEffectChange = (name, value) => {
     setEffects((prev) => ({ ...prev, [name]: Number(value) }));
-    // TODO: route to audio engine
   };
 
   const handleInstrumentChange = (value) => {
@@ -223,8 +226,21 @@ export default function App() {
         alignItems: "center",
         padding: "2rem",
         boxSizing: "border-box",
+        position: "relative",
       }}
     >
+      {/* Drum preset selector */}
+      <div style={{ position: "absolute", top: "1rem", left: "1rem" }}>
+        <select
+          value={padPreset}
+          onChange={(e) => setPadPresetState(e.target.value)}
+        >
+          <option value="Default">Drums: Default</option>
+          <option value="Acoustic">Drums: Acoustic</option>
+          <option value="808s">Drums: 808s</option>
+        </select>
+      </div>
+
       <ControllerShell>
         {/* Top transport & recording controls */}
         <TransportBar
@@ -237,10 +253,16 @@ export default function App() {
         />
 
         {/* Instrument selector */}
-        <InstrumentSelector
-          instrument={instrument}
-          onInstrumentChange={handleInstrumentChange}
-        />
+        <div className="top-right-controls">
+          <InstrumentSelector
+            instrument={instrument}
+            onInstrumentChange={handleInstrumentChange}
+          />
+          <DrumKitSelector
+            padPreset={padPreset}
+            onPresetChange={setPadPresetState}
+          />
+        </div>
 
         {/* Main control area */}
         <div
@@ -256,11 +278,11 @@ export default function App() {
           <PadGrid pads={PADS} onPadHit={handlePadHit} />
 
           {/* Keyboard */}
-        <Keyboard
-  instrument={instrument}
-  onKeyPress={handleKeyPress}
-  scale={2}
-/>
+          <Keyboard
+            instrument={instrument}
+            onKeyPress={handleKeyPress}
+            scale={2}
+          />
 
           {/* Loops / patterns */}
           <LoopsBar
