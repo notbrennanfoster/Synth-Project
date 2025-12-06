@@ -1,4 +1,6 @@
-// src/components/ControllerShell.jsx
+import "./ControllerShell.css";
+
+
 export default function ControllerShell({ children }) {
   return (
     <div className="controller-shell">

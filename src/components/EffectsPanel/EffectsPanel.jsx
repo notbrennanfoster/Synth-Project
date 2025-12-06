@@ -1,23 +1,26 @@
-// src/components/EffectsPanel.jsx
-import EffectKnob from "./EffectKnob.jsx";
+import "./EffectsPanel.css";
+import EffectKnob from "../EffectKnob/EffectKnob.jsx";
 
 export default function EffectsPanel({ effects, onEffectChange }) {
   return (
     <div className="effects-panel">
       <EffectKnob
         label="Cutoff"
+        name="cutoff"
         value={effects.cutoff}
-        onChange={(v) => onEffectChange("cutoff", v)}
+        onChange={onEffectChange}
       />
       <EffectKnob
         label="Resonance"
+        name="resonance"
         value={effects.resonance}
-        onChange={(v) => onEffectChange("resonance", v)}
+        onChange={onEffectChange}
       />
       <EffectKnob
         label="Reverb"
+        name="reverb"
         value={effects.reverb}
-        onChange={(v) => onEffectChange("reverb", v)}
+        onChange={onEffectChange}
       />
     </div>
   );

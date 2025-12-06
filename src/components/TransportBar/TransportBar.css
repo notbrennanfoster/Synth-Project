@@ -1,0 +1,98 @@
+
+.top-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.4rem;
+}
+
+.transport-bar {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.brand-block {
+  text-align: left;
+}
+
+.brand-main {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.brand-sub {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.transport-block {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.transport-btn {
+  padding: 0.55rem 1.6rem;
+  border-radius: 999px;
+  border: none;
+  background: #111;
+  color: #f5f5f5;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.transport-btn-active {
+  background: #22c55e;
+}
+
+.bpm-control {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.bpm-control input {
+  width: 4rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background: #101010;
+  color: #f5f5f5;
+}
+
+
+.sequence-btn {
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  background: #16a34a;
+  color: #f5f5f5;
+  font-weight: 600;
+}
+
+.sequence-btn-recording {
+  background: #dc2626;
+}
+
+
+@media (max-width: 900px) {
+  .top-section {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+}

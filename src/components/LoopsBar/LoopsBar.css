@@ -1,0 +1,84 @@
+
+
+.loops-section {
+  margin-top: 1.8rem;
+  text-align: left;
+}
+
+.loops-title {
+  margin-bottom: 0.6rem;
+  font-size: 1.2rem;
+}
+
+.loops-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.loop-slot {
+  background: #151515;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 0.6rem 0.8rem;
+}
+
+.loop-slot-active {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 1px #22c55e;
+}
+
+.loop-slot-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.loop-slot-body {
+  min-height: 2rem;
+  opacity: 0.8;
+}
+
+.loop-btn-save {
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #e5e7eb;
+  border: none;
+  font-size: 0.75rem;
+}
+
+.loop-toggle {
+  border: none;
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.loop-on {
+  background: #22c55e;
+  color: #fff;
+}
+
+.loop-off {
+  background: #222;
+  color: #aaa;
+}
+
+
+@media (max-width: 900px) {
+  .loops-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .loops-grid {
+    grid-template-columns: 1fr;
+  }
+}

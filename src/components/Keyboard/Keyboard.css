@@ -1,0 +1,92 @@
+/* Keyboard.css */
+
+.keyboard-panel {
+  margin: 1rem 0 1.4rem;
+  padding: 1.2rem;
+  border-radius: 20px;
+  background: #b91c1c;
+  box-shadow: inset 0 0 25px rgba(0,0,0,0.55);
+}
+
+.keyboard-wrapper {
+  position: relative;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.white-keys {
+  display: flex;
+  padding: 0.5rem;
+  background: #000;
+  border-radius: 16px;
+}
+
+.key {
+  position: relative;
+  border: none;
+}
+
+/* White keys */
+.key-white {
+  flex: 1;
+  height: 120px;
+  background: linear-gradient(to bottom, #ffffff, #dcdcdc);
+  border-left: 1px solid #bbb;
+  border-right: 1px solid #bbb;
+  border-radius: 0 0 10px 10px;
+}
+
+.key-white:active {
+  background: linear-gradient(to bottom, #ececec, #c9c9c9);
+}
+
+/* Black keys */
+.black-keys {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0.5rem;
+  height: 90px;
+  pointer-events: none;
+}
+
+.key-black {
+  position: absolute;
+  width: 6%;
+  height: 90px;
+  background: linear-gradient(to bottom, #333, #000);
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 8px 15px rgba(0,0,0,0.8);
+  pointer-events: auto;
+}
+
+.key-black:active {
+  background: linear-gradient(to bottom, #222, #000);
+}
+
+/* KEY LABELS */
+.key-label {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  opacity: 0.9;
+  color: #111111; /* black on white keys */
+}
+
+.key-label-black {
+  color: #f5f5f5; /* white on black keys */
+}
+
+/* Black key positions across 14 white keys */
+.black-pos-0 { left: 6%; }
+.black-pos-1 { left: 13%; }
+.black-pos-3 { left: 27%; }
+.black-pos-4 { left: 34%; }
+.black-pos-5 { left: 41%; }
+.black-pos-7 { left: 55%; }
+.black-pos-8 { left: 62%; }
+.black-pos-10 { left: 76%; }
+.black-pos-11 { left: 83%; }
+.black-pos-12 { left: 90%; }

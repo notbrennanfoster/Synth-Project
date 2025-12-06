@@ -11,14 +11,16 @@ import {
 
 import { playPad, initPadAudio } from "./components/padAudio";
 
-import ControllerShell from "./components/ControllerShell.jsx";
-import TransportBar from "./components/TransportBar.jsx";
-import PadGrid from "./components/PadGrid.jsx";
-import Keyboard from "./components/Keyboard.jsx";
-import LoopsBar from "./components/LoopsBar.jsx";
-import EffectsPanel from "./components/EffectsPanel.jsx";
-import InstrumentSelector from "./components/InstrumentSelector.jsx";
-
+import ControllerShell from "./components/ControllerShell/ControllerShell.jsx";
+import TransportBar from "./components/TransportBar/TransportBar.jsx";
+import InstrumentSelector from "./components/InstrumentSelector/InstrumentSelector.jsx";
+import Pad from "./components/Pad/Pad.jsx";
+import PadGrid from "./components/PadGrid/PadGrid.jsx";
+import EffectsPanel from "./components/EffectsPanel/EffectsPanel.jsx";
+import EffectKnob from "./components/EffectKnob/EffectKnob.jsx";
+import Keyboard from "./components/Keyboard/Keyboard.jsx";
+import LoopsBar from "./components/LoopsBar/LoopsBar.jsx";
+import SequenceButton from "./components/SequenceButton/SequenceButton.jsx";
 import "./App.css";
 
 // Merge all active loops into one sequence.
@@ -156,8 +158,18 @@ export default function App() {
     });
   };
 
-  const handleBpmChange = (value) => {
+  // Accepts either a number or an event.target.value
+  const handleBpmChange = (valueOrEvent) => {
+    const value =
+      typeof valueOrEvent === "number"
+        ? valueOrEvent
+        : valueOrEvent?.target
+        ? valueOrEvent.target.value
+        : valueOrEvent;
+
     const numeric = Number(value);
+    if (Number.isNaN(numeric)) return;
+
     setBpmState(numeric);
     setBpm(numeric);
   };
@@ -166,8 +178,6 @@ export default function App() {
     console.log("Key pressed:", note, "instrument:", instrument);
     // TODO: trigger synth note based on instrument
   };
-
-  // loops
 
   const handleSaveLoop = (index) => {
     if (sequence.length === 0) return;
@@ -191,8 +201,6 @@ export default function App() {
     });
   };
 
-  // effects + instrument
-
   const handleEffectChange = (name, value) => {
     setEffects((prev) => ({ ...prev, [name]: Number(value) }));
     // TODO: route to audio engine
@@ -205,48 +213,71 @@ export default function App() {
   // ---------- UI ----------
 
   return (
-    <div style={{ padding: "4rem", fontFamily: "Arial, sans-serif" , textAlign: "center" , lineHeight: "1.6" ,
-     color: "whitesmoke" , layout: "flex", flexDirection: "column", alignItems: "center" }}>
-      <h1>Drum Machine</h1>
-
-      {/* Play / Stop */}
-      <button onClick={handlePlayClick}>
-        {isPlayingState ? "Stop" : "Play"}
-      </button>
-
-      {/* BPM */}
-      <label style={{ marginLeft: "1rem" }}>
-        BPM:{" "}
-        <input
-          type="number"
-          value={bpm}
-          onChange={handleBpmChange}
-          min="40"
-          max="200"
-        />
-      </label>
-
-      {/* Pads */}
-      <div style={{ marginTop: "2rem" }}>
-        <Pad label="Kick" token="bd" onHit={handlePadHit} />
-        <Pad label="Snare" token="sd" onHit={handlePadHit} />
-        <Pad label="Hat" token="hh" onHit={handlePadHit} />
-      </div>
-
-      {/* Sequence Button */}
-      <div style={{ marginTop: "1rem" }}>
-        <SequenceButton
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#111",
+        color: "whitesmoke",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "2rem",
+        boxSizing: "border-box",
+      }}
+    >
+      <ControllerShell>
+        {/* Top transport & recording controls */}
+        <TransportBar
+          isPlaying={isPlayingState}
+          onPlayClick={handlePlayClick}
+          bpm={bpm}
+          onBpmChange={handleBpmChange}
           isRecording={isRecording}
-          onToggle={handleSequenceToggle}
+          onRecordToggle={handleSequenceToggle}
         />
-      </div>
 
-      {/* Debug / Feedback */}
-      <p style={{ marginTop: "1rem" }}>
-        Sequence: {sequence.join(" ")}
-      </p>
+        {/* Instrument selector */}
+        <InstrumentSelector
+          instrument={instrument}
+          onInstrumentChange={handleInstrumentChange}
+        />
+
+        {/* Main control area */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2fr 2fr",
+            gridTemplateRows: "auto auto",
+            gap: "1.5rem",
+            marginTop: "1.5rem",
+          }}
+        >
+          {/* Pad grid */}
+          <PadGrid pads={PADS} onPadHit={handlePadHit} />
+
+          {/* Keyboard */}
+        <Keyboard
+  instrument={instrument}
+  onKeyPress={handleKeyPress}
+  scale={2}
+/>
+
+          {/* Loops / patterns */}
+          <LoopsBar
+            loops={loops}
+            onSaveLoop={handleSaveLoop}
+            onToggleLoopActive={handleToggleLoopActive}
+          />
+
+          {/* Effects */}
+          <EffectsPanel effects={effects} onEffectChange={handleEffectChange} />
+        </div>
+
+        {/* Debug / Feedback */}
+        <p style={{ marginTop: "1.5rem", opacity: 0.75, fontSize: "0.9rem" }}>
+          Sequence: {sequence.join(" ")}
+        </p>
+      </ControllerShell>
     </div>
   );
 }
-
-

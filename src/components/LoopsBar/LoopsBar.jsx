@@ -1,4 +1,6 @@
-// src/components/LoopsBar.jsx
+import "./LoopsBar.css";
+
+
 export default function LoopsBar({ loops, onSaveLoop, onToggleActive }) {
   return (
     <div className="loops-section">

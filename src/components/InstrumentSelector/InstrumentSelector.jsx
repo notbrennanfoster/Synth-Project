@@ -1,4 +1,5 @@
-// src/components/InstrumentSelector.jsx
+import "./InstrumentSelector.css";
+
 const OPTIONS = [
   { value: "piano", label: "Piano" },
   { value: "bass", label: "Bass" },

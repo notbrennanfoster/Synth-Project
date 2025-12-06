@@ -1,4 +1,4 @@
-
+// src/components/padAudio.js
 
 let audioCtx = null;
 const padBuffers = {};
@@ -10,19 +10,52 @@ const PAD_FILES = {
   hh: "004_DT Hat Closed.wav",
 };
 
-async function ensureAudioContext() {
+// Create (but don't resume) the AudioContext
+function getAudioContext() {
   if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
   }
-  if (audioCtx.state === "suspended") {
-    await audioCtx.resume();
+  return audioCtx;
+}
+
+// Resume only when called from a user gesture (e.g. pad click)
+async function ensureResumedContext() {
+  const ctx = getAudioContext();
+
+  if (ctx.state === "suspended") {
+    try {
+      await ctx.resume();
+    } catch (err) {
+      console.warn("Failed to resume AudioContext", err);
+    }
   }
+
+  return ctx;
+}
+
+// Wrap decodeAudioData so it works in Safari + Chrome
+function decodeBuffer(ctx, arrayBuffer) {
+  return new Promise((resolve, reject) => {
+    // Some browsers support promise-based, some only callback-based
+    const result = ctx.decodeAudioData(
+      arrayBuffer,
+      (buffer) => resolve(buffer),
+      (err) => reject(err)
+    );
+
+    // If decodeAudioData already returned a Promise (modern spec)
+    if (result && typeof result.then === "function") {
+      result.then(resolve).catch(reject);
+    }
+  });
 }
 
 // Load all pad samples into memory
 export async function initPadAudio() {
   if (padsLoaded) return;
-  await ensureAudioContext();
+
+  const ctx = getAudioContext(); // DO NOT resume here
 
   const entries = Object.entries(PAD_FILES);
 
@@ -35,8 +68,12 @@ export async function initPadAudio() {
         return;
       }
       const arrayBuffer = await res.arrayBuffer();
-      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      padBuffers[token] = audioBuffer;
+      try {
+        const audioBuffer = await decodeBuffer(ctx, arrayBuffer);
+        padBuffers[token] = audioBuffer;
+      } catch (err) {
+        console.warn("Failed to decode pad sample:", token, err);
+      }
     })
   );
 
@@ -50,7 +87,9 @@ export async function playPad(token) {
     return;
   }
 
-  await ensureAudioContext();
+  // This is called from the button click → safe for Safari
+  const ctx = await ensureResumedContext();
+
   if (!padsLoaded) {
     await initPadAudio();
   }
@@ -61,8 +100,8 @@ export async function playPad(token) {
     return;
   }
 
-  const src = audioCtx.createBufferSource();
+  const src = ctx.createBufferSource();
   src.buffer = buffer;
-  src.connect(audioCtx.destination);
+  src.connect(ctx.destination);
   src.start();
 }
