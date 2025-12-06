@@ -10,7 +10,7 @@ const BASE_BPM = 120; // reference tempo
 const engineState = {
   bpm: 100,
   sequence: ["bd", "sd", "hh", "bd"], // default pattern until user records one
-  drumPreset: "Default",              // current drum kit (matches DrumKitSelector / padAudio)
+  drumPreset: "Default",              // current drum kit used for Strudel samples
 };
 
 // Convert BPM → cps and apply to Strudel
@@ -158,16 +158,20 @@ export function setBpm(newBpm) {
 }
 
 // Set the recorded/merged sequence that Strudel will loop
+// Allows tokens like "bd*2", "sd*4" etc. for note-speed density
 export function setSequence(seq) {
-  // Only allow tokens we have samples for
-  const cleaned = seq.filter(
-    (s) =>
-      s === "bd" ||
-      s === "sd" ||
-      s === "hh" ||
-      s === "hho" ||
-      s === "cp"
-  );
+  // Only allow tokens we have samples for, but permit Strudel modifiers like "*2", "*4"
+  const cleaned = seq.filter((s) => {
+    const base = String(s).split("*")[0]; // e.g. "bd*2" -> "bd"
+
+    return (
+      base === "bd" ||
+      base === "sd" ||
+      base === "hh" ||
+      base === "hho" ||
+      base === "cp"
+    );
+  });
 
   if (cleaned.length === 0) {
     // If nothing valid, don't overwrite the existing pattern
@@ -230,3 +234,4 @@ export async function warmUp() {
 
   window.__strudelWarm = true;
 }
+

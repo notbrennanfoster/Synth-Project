@@ -7,6 +7,7 @@ import {
   setBpm,
   setSequence,
   warmUp,
+  setDrumPreset, // Strudel drum preset, kept in sync with pad kits
 } from "./audio/strudelEngine";
 
 import { playPad, initPadAudio, setPadPreset } from "./components/padAudio";
@@ -19,6 +20,7 @@ import PadGrid from "./components/PadGrid/PadGrid.jsx";
 import EffectsPanel from "./components/EffectsPanel/EffectsPanel.jsx";
 import Keyboard from "./components/Keyboard/Keyboard.jsx";
 import LoopsBar from "./components/LoopsBar/LoopsBar.jsx";
+import NoteSpeedSelector from "./components/NoteSpeedSelector/NoteSpeedSelector.jsx";
 
 import "./App.css";
 
@@ -60,10 +62,10 @@ export default function App() {
   const [sequence, setSequenceState] = useState([]);
 
   const [loops, setLoops] = useState([
-    { id: 0, name: "Loop 1", pattern: [], isActive: false },
-    { id: 1, name: "Loop 2", pattern: [], isActive: false },
-    { id: 2, name: "Loop 3", pattern: [], isActive: false },
-    { id: 3, name: "Loop 4", pattern: [], isActive: false },
+    { id: 0, name: "Loop 1", pattern: [], instrument: "piano", drumPreset: "Default", isActive: false },
+    { id: 1, name: "Loop 2", pattern: [], instrument: "piano", drumPreset: "Default", isActive: false },
+    { id: 2, name: "Loop 3", pattern: [], instrument: "piano", drumPreset: "Default", isActive: false },
+    { id: 3, name: "Loop 4", pattern: [], instrument: "piano", drumPreset: "Default", isActive: false },
   ]);
 
   const [instrument, setInstrument] = useState("piano");
@@ -76,6 +78,9 @@ export default function App() {
 
   // drum kit preset (folder under /public/samples/Drums)
   const [padPreset, setPadPresetState] = useState("Default");
+
+  // note speed (quarter / eighth / sixteenth)
+  const [noteSpeed, setNoteSpeed] = useState("1x");
 
   // timer for quantized loop changes
   const changeTimerRef = useRef(null);
@@ -92,8 +97,12 @@ export default function App() {
 
   // reload drum samples whenever the preset changes
   useEffect(() => {
+    // pad one-shots
     setPadPreset(padPreset);
     initPadAudio();
+
+    // Strudel loop engine
+    setDrumPreset(padPreset);
   }, [padPreset]);
 
   // ---------- helpers ----------
@@ -124,6 +133,19 @@ export default function App() {
     }, barMs);
   };
 
+  // Turn "bd" into "bd", "bd*2", "bd*4" based on current noteSpeed
+  const applySpeedToToken = (token) => {
+    switch (noteSpeed) {
+      case "2x":
+        return `${token}*2`;   // eighths
+      case "4x":
+        return `${token}*4`;   // sixteenths
+      case "1x":
+      default:
+        return token;          // quarters
+    }
+  };
+
   // ---------- handlers ----------
 
   const handlePadHit = (token) => {
@@ -131,9 +153,11 @@ export default function App() {
     playPad(token);
 
     if (isRecording) {
+      const tokenForSeq = applySpeedToToken(token);
+
       setSequenceState((prev) => {
-        const updated = [...prev, token]; // store exact token
-        setSequence(updated);             // tell Strudel about it
+        const updated = [...prev, tokenForSeq]; // store exact token with speed applied
+        setSequence(updated);                   // tell Strudel about it
         return updated;
       });
     }
@@ -189,7 +213,14 @@ export default function App() {
 
     setLoops((prev) => {
       const updated = prev.map((loop, i) =>
-        i === index ? { ...loop, pattern: sequence } : loop
+        i === index
+          ? {
+              ...loop,
+              pattern: sequence,   // saves pattern including *2, *4 modifiers
+              instrument: instrument, // save the instrument used when recording
+              drumPreset: padPreset,  // save the drum kit used when recording
+            }
+          : loop
       );
       updateSequenceForLoops(updated);
       return updated;
@@ -201,6 +232,20 @@ export default function App() {
       const updated = prev.map((loop, i) =>
         i === index ? { ...loop, isActive: !loop.isActive } : loop
       );
+
+      const toggled = updated[index];
+
+      // When a loop becomes active, restore its saved instrument
+      if (toggled.isActive && toggled.instrument) {
+        setInstrument(toggled.instrument);
+      }
+
+      // When a loop becomes active, restore its saved drum preset
+      if (toggled.isActive && toggled.drumPreset) {
+        setPadPresetState(toggled.drumPreset); // pad one-shots
+        setDrumPreset(toggled.drumPreset);     // Strudel loop samples
+      }
+
       updateSequenceForLoops(updated);
       return updated;
     });
@@ -256,6 +301,9 @@ export default function App() {
         {/* divider under the whole top bar */}
         <div className="top-divider" />
 
+        {/* Note speed selector */}
+        <NoteSpeedSelector value={noteSpeed} onChange={setNoteSpeed} />
+
         {/* Main control area */}
         <div
           style={{
@@ -284,7 +332,13 @@ export default function App() {
         </div>
 
         {/* Debug / Feedback */}
-        <p style={{ marginTop: "1.5rem", opacity: 0.75, fontSize: "0.9rem" }}>
+        <p
+          style={{
+            marginTop: "1.5rem",
+            opacity: 0.75,
+            fontSize: "0.9rem",
+          }}
+        >
           Sequence: {sequence.join(" ")}
         </p>
       </ControllerShell>
